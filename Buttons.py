@@ -11,16 +11,17 @@ class Button:
         self.currentColor = normalColor
         self.fontColor = fontColor  
 
-    def draw(self, screen):
-        pygame.draw.rect(screen, self.currentColor, self.rect, border_radius=8)
+    def draw(self, screen, scrollOffset=0):
+        adjRect = self.rect.move(0, -scrollOffset)
+        pygame.draw.rect(screen, self.currentColor, adjRect, border_radius=8)
         textRender = self.font.render(self.text, True, self.fontColor)
-        textRect = textRender.get_rect(center=self.rect.center)
+        textRect = textRender.get_rect(center=adjRect.center)
         screen.blit(textRender, textRect)
 
-    def update(self, mousePos):
-        self.currentColor = self.hoverColor if self.rect.collidepoint(mousePos) else self.normalColor
+    def update(self, mousePos, scrollOffset=0):
+        adjRect = self.rect.move(0, -scrollOffset)
+        self.currentColor = self.hoverColor if adjRect.collidepoint(mousePos) else self.normalColor
 
-    def wasClicked(self, event):
-        return event.type == pygame.MOUSEBUTTONDOWN and self.rect.collidepoint(event.pos)
-
-
+    def wasClicked(self, event, scrollOffset=0):
+        adjRect = self.rect.move(0, -scrollOffset)
+        return event.type == pygame.MOUSEBUTTONDOWN and adjRect.collidepoint(event.pos)

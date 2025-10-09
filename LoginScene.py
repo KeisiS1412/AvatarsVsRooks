@@ -8,7 +8,7 @@ class LoginScene(Scene):
     def __init__(self, font, res, switchSceneCallback):
         self.switchScene = switchSceneCallback
         self.buttonHeigth = 75
-        self.buttonLength = 400
+        self.buttonLength = 450
         center = res[0]//2
         yStart = 400
         ySpacing = 90
@@ -22,6 +22,7 @@ class LoginScene(Scene):
         self.faceRecognitionButton = ImageButton(center - self.buttonLength//2 + 75, yStart + ySpacing * 5 + 100, "faceRecognition.png", 0.20)
         self.helpButton = ImageButton(50, 40, "helpButton.png", 0.15)
         self.aboutButton = ImageButton(140, 40, "aboutButton.png", 0.15)
+        
 
         self.buttonsList = [
         self.loginButton,
@@ -29,7 +30,8 @@ class LoginScene(Scene):
         self.faceRecognitionButton,
         self.helpButton,
         self.aboutButton,
-        self.registerButton
+        self.registerButton,
+        self.recoverPassword
         ]
 
     def handleEvent(self, event): #Se encarga de detectar si el usuario hace una accion como clickear, teclear, etc...

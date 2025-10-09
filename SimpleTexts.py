@@ -11,17 +11,18 @@ class SimpleText:
         self.label = self.font.render(self.text, True, self.textColor)
         self.rect = self.label.get_rect()
         self.rect.center = (centerX, centerY)
-
         if self.bgColor:
             self.rect.inflate_ip(self.padding * 2, self.padding * 2)
 
-    def draw(self, screen):
+    def draw(self, screen, scrollOffset=0):
+        adjRect = self.rect.move(0, -scrollOffset)
         if self.bgColor:
-            pygame.draw.rect(screen, self.bgColor, self.rect, border_radius=8)
-        screen.blit(self.label, self.label.get_rect(center=self.rect.center))
+            pygame.draw.rect(screen, self.bgColor, adjRect, border_radius=8)
+        screen.blit(self.label, self.label.get_rect(center=adjRect.center))
 
-    def wasClicked(self, event):
-        return event.type == pygame.MOUSEBUTTONDOWN and event.button == 1 and self.rect.collidepoint(event.pos)
+    def wasClicked(self, event, scrollOffset=0):
+        adjRect = self.rect.move(0, -scrollOffset)
+        return event.type == pygame.MOUSEBUTTONDOWN and event.button == 1 and adjRect.collidepoint(event.pos)
 
     def setText(self, newText):
         self.text = newText
@@ -31,3 +32,6 @@ class SimpleText:
         self.rect.center = oldCenter
         if self.bgColor:
             self.rect.inflate_ip(self.padding * 2, self.padding * 2)
+
+    def update(self, deltaTime=0, scrollOffset=0):
+        pass

@@ -10,69 +10,74 @@ class DropdownButton:
         self.hoverColor = hoverColor
         self.maxVisible = maxVisible
         self.expanded = False
-        self.selected = options[0]
         self.scrollOffset = 0
         self.placeholder = placeholder
         self.selected = None
-
-        # Centrado automático
         self.rect = pygame.Rect(0, 0, width, height)
         self.rect.center = (centerX, centerY)
 
-    def handleEvent(self, event):
+    def handleEvent(self, event, scrollOffset=0):
+        adjRect = self.rect.move(0, -scrollOffset)
         if event.type == pygame.MOUSEBUTTONDOWN:
-            if self.rect.collidepoint(event.pos):
+            if adjRect.collidepoint(event.pos):
                 self.expanded = not self.expanded
             elif self.expanded:
+                clickedOption = False
                 for i in range(self.scrollOffset, min(len(self.options), self.scrollOffset + self.maxVisible)):
-                    optionRect = pygame.Rect(self.rect.x, self.rect.y + (i - self.scrollOffset + 1) * self.optionHeight, self.rect.width, self.optionHeight)
+                    optionRect = pygame.Rect(
+                        adjRect.x,
+                        adjRect.y + (i - self.scrollOffset + 1) * self.optionHeight,
+                        adjRect.width,
+                        self.optionHeight
+                    )
                     if optionRect.collidepoint(event.pos):
                         self.selected = self.options[i]
-                        self.expanded = False
+                        clickedOption = True
                         break
-                else:
-                    self.expanded = False
+                self.expanded = False if not clickedOption else self.expanded
+            else:
+                self.expanded = False
+
         elif event.type == pygame.MOUSEWHEEL and self.expanded:
             mouseX, mouseY = pygame.mouse.get_pos()
-            menuTop = self.rect.bottom
-            menuBottom = self.rect.bottom + self.optionHeight * min(len(self.options), self.maxVisible)
-            menuRect = pygame.Rect(self.rect.x, menuTop, self.rect.width, menuBottom - menuTop)
+            menuTop = adjRect.bottom
+            menuHeight = self.optionHeight * min(len(self.options), self.maxVisible)
+            menuRect = pygame.Rect(adjRect.x, menuTop, adjRect.width, menuHeight)
+            if menuRect.collidepoint((mouseX, mouseY)) or adjRect.collidepoint((mouseX, mouseY)):
+                maxOffset = max(0, len(self.options) - self.maxVisible)
+                self.scrollOffset = max(0, min(self.scrollOffset - event.y, maxOffset))
 
-            if menuRect.collidepoint((mouseX, mouseY)):
-                self.scrollOffset = max(0, min(self.scrollOffset - event.y, len(self.options) - self.maxVisible))
+    def draw(self, screen, deltaTime=0, scrollOffset=0):
+        adjRect = self.rect.move(0, -scrollOffset)
+        pygame.draw.rect(screen, self.bgColor, adjRect, border_radius=8)
+        pygame.draw.rect(screen, (0, 0, 0), adjRect, width=2, border_radius=8)
 
-    def update(self, mousePos):
-        pass
-
-    def draw(self, screen, deltaTime=0):
-        # Fondo del botón
-        pygame.draw.rect(screen, self.bgColor, self.rect, border_radius=10)
-        # Borde negro
-        pygame.draw.rect(screen, (0, 0, 0), self.rect, width=2, border_radius=10)
-
-        # Texto seleccionado
         displayText = self.selected if self.selected else self.placeholder
         label = self.font.render(displayText, True, self.textColor)
-        screen.blit(label, (self.rect.x + 10, self.rect.y + (self.rect.height - label.get_height()) // 2))
+        screen.blit(label, (adjRect.x + 10, adjRect.y + (adjRect.height - label.get_height()) // 2))
 
-        # Opciones desplegadas
         if self.expanded:
-            for i in range(self.scrollOffset, min(len(self.options), self.scrollOffset + self.maxVisible)):
+            visibleOptions = self.options[self.scrollOffset:self.scrollOffset + self.maxVisible]
+            for i, option in enumerate(visibleOptions):
                 optionRect = pygame.Rect(
-                    self.rect.x,
-                    self.rect.y + (i - self.scrollOffset + 1) * self.optionHeight,
-                    self.rect.width,
+                    adjRect.x,
+                    adjRect.bottom + i * self.optionHeight,
+                    adjRect.width,
                     self.optionHeight
                 )
                 mousePos = pygame.mouse.get_pos()
                 color = self.hoverColor if optionRect.collidepoint(mousePos) else self.bgColor
-
-                pygame.draw.rect(screen, color, optionRect, border_radius=10)
-                pygame.draw.rect(screen, (0, 0, 0), optionRect, width=2, border_radius=10)
-
-                optionLabel = self.font.render(self.options[i], True, self.textColor)
+                pygame.draw.rect(screen, color, optionRect, border_radius=8)
+                pygame.draw.rect(screen, (0, 0, 0), optionRect, width=2, border_radius=8)
+                optionLabel = self.font.render(option, True, self.textColor)
                 screen.blit(optionLabel, (optionRect.x + 10, optionRect.y + (optionRect.height - optionLabel.get_height()) // 2))
 
+            totalHeight = self.optionHeight * len(visibleOptions)
+            pygame.draw.rect(screen, (0, 0, 0), (adjRect.x, adjRect.bottom, adjRect.width, totalHeight), width=2, border_radius=8)
+
+    def update(self, deltaTime=0, scrollOffset=0):
+        # Método vacío para compatibilidad con RegisterScene.update()
+        pass
 
     def getText(self):
         return self.selected
