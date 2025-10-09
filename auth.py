@@ -10,10 +10,18 @@ from db import get_conn
 # 🔹 Configuración inicial
 # ------------------------------------------------------------
 load_dotenv()
-ENC_KEY = binascii.unhexlify(os.getenv("ENC_KEY_HEX"))   # 32 bytes (64 hex)
+
+try:
+    key_hex = os.getenv("ENC_KEY_HEX")
+    if not key_hex:
+        raise ValueError("Variable de entorno ENC_KEY_HEX no encontrada.")
+    ENC_KEY = binascii.unhexlify(key_hex)  # 32 bytes (64 hex)
+except Exception as e:
+    print(f"⚠️ Advertencia: {e}")
+    print("Se generará una clave temporal (solo para pruebas).")
+    ENC_KEY = os.urandom(32)  # ⚠️ temporal, no persistente
+
 ph = PasswordHasher()  # Hash de contraseñas con Argon2id
-
-
 # ------------------------------------------------------------
 # 🔹 Función auxiliar para convertir datos binarios (fix memoryview)
 # ------------------------------------------------------------
