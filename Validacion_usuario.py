@@ -1,10 +1,9 @@
 import os
-import re
 import json
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms
 from cryptography.hazmat.backends import default_backend
 
-# === CONFIGURACIÓN DE RUTAS ===
+# === CONFIGURACIÓN ===
 KEY_FILE = "clave_chacha20.key"
 USERS_DIR = "usuarios_encriptados"
 
@@ -12,6 +11,7 @@ if not os.path.exists(USERS_DIR):
     os.makedirs(USERS_DIR)
 
 
+# === DESCIFRADO ===
 
 def generar_clave():
     """Lee la clave maestra para descifrar datos ya existentes."""
@@ -32,74 +32,51 @@ def descifrar_datos(ciphertext: bytes, key: bytes):
     return decrypted.decode("utf-8")
 
 
-# === VALIDACIONES DE CAMPOS ===
+# === VERIFICACIÓN DE USUARIOS ===
 
-def cargar_malas_palabras():
-    """Carga malas palabras desde un archivo TXT (si existe)."""
-    archivo = "malas_palabras.txt"
-    if not os.path.exists(archivo):
-        return []
-    with open(archivo, "r", encoding="utf-8") as f:
-        return [line.strip().lower() for line in f if line.strip() and not line.startswith("#")]
-
-
-def validar_contraseña(password: str):
-    """Valida la seguridad de una contraseña."""
-    malas = cargar_malas_palabras()
-    for bad in malas:
-        if bad in password.lower():
-            return False, f"La contraseña contiene una palabra inapropiada: '{bad}'"
-
-    if not re.match(r"^[A-Za-z0-9]+$", password):
-        return False, "La contraseña solo puede contener letras y números."
-
-    if len(password) < 8:
-        return False, "Debe tener al menos 8 caracteres."
-    if not re.search(r"[A-Z]", password):
-        return False, "Debe incluir al menos una letra mayúscula."
-    if not re.search(r"[0-9]", password):
-        return False, "Debe incluir al menos un número."
-
-    return True, "Contraseña válida."
-
-
-def validar_informacion(nombre, apellidos, nacimiento, password):
-    """Valida que los datos personales sean correctos."""
-    if not nombre or not apellidos or not nacimiento or not password:
-        return False, "Todos los campos son obligatorios."
-
-    if not re.match(r"^\d{2}/\d{2}/\d{4}$", nacimiento):
-        return False, "La fecha debe tener el formato DD/MM/AAAA."
-
-    valido, msg = validar_contraseña(password)
-    if not valido:
-        return False, msg
-
-    return True, "Información válida."
-
-
-# VERIFICACIÓN DE USUARIOS EXISTENTES (para login o registro)
-
-def usuario_existe(nombre):
-    """Comprueba si el archivo del usuario existe."""
-    filename = os.path.join(USERS_DIR, f"{nombre.lower()}.dat")
+def usuario_existe(username):
+    """Verifica si el usuario existe en la carpeta encriptada."""
+    filename = os.path.join(USERS_DIR, f"{username.lower()}.dat")
     return os.path.exists(filename)
 
 
-def verificar_credenciales(nombre, password):
+def verificar_credenciales(username=None, password=None, facial=False):
     """
-    Verifica si el usuario existe y si la contraseña coincide con la guardada.
-    Solo lectura (no crea ni guarda nada).
+    Verifica credenciales según el tipo de login:
+    - Login normal: requiere username + password
+    - Login facial: requiere solo facial=True (sin contraseña)
     """
-    nombre = nombre.strip().lower()
-    if not usuario_existe(nombre):
-        return False, "El usuario no está registrado."
-
     key = generar_clave()
     if not key:
         return False, "No se encontró la clave de descifrado."
 
-    filename = os.path.join(USERS_DIR, f"{nombre}.dat")
+    # === LOGIN FACIAL ===
+    if facial:
+        # Buscar usuario con registro facial
+        for archivo in os.listdir(USERS_DIR):
+            ruta = os.path.join(USERS_DIR, archivo)
+            try:
+                with open(ruta, "rb") as f:
+                    encrypted = f.read()
+                decrypted = descifrar_datos(encrypted, key)
+                datos = json.loads(decrypted)
+
+                if datos.get("facial_id"):
+                    return True, datos
+            except Exception:
+                continue
+        return False, "No se encontró ningún usuario con registro facial."
+
+    # === LOGIN NORMAL ===
+    if not username or not password:
+        return False, "Debe ingresar usuario y contraseña."
+
+    username = username.strip().lower()
+    filename = os.path.join(USERS_DIR, f"{username}.dat")
+
+    if not usuario_existe(username):
+        return False, "El usuario no está registrado."
+
     try:
         with open(filename, "rb") as f:
             encrypted = f.read()
@@ -110,5 +87,6 @@ def verificar_credenciales(nombre, password):
             return True, datos
         else:
             return False, "Contraseña incorrecta."
+
     except Exception as e:
         return False, f"Error al verificar usuario: {e}"
