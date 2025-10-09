@@ -8,6 +8,11 @@ from SimpleTexts import SimpleText
 import subprocess
 import platform
 import os
+import threading
+import traceback
+
+# Importa tu backend real
+from auth import register_user  # def register_user(username, password, email=None, extra=None) -> (bool, str)
 
 class RegisterScene(Scene):
     def __init__(self, font, res, switchSceneCallback):
@@ -70,6 +75,7 @@ class RegisterScene(Scene):
                                          countryList, (0, 0, 0), (110, 100, 100), (180, 170, 170),
                                          maxVisible=6, placeholder="Selecciona tu país")
                 else:
+                    # initialText se usa como placeholder en tu TextBox
                     box = TextBox(colX, rowY, self.fieldWidth, self.fieldHeight, font,
                                   (110, 100, 100), (180, 170, 170), label, (229, 235, 59))
                 self.fields.append(box)
@@ -96,6 +102,88 @@ class RegisterScene(Scene):
                                              font, (0, 0, 0))
 
     # ====== EVENTOS ======
+        # Status para mensajes
+        self.statusText = SimpleText("", screenW // 2, bottomY + 60, font, (255, 255, 255))
+
+        # Flag de carga para evitar doble click y congelamientos
+        self._is_loading = False
+
+    # ==== helpers (arreglados) ====
+    def _get_field_by_label(self, label):
+        for box in self.fields:
+            # Para tus TextBox: el "label" ahora vive en .placeholder
+            if isinstance(box, TextBox) and getattr(box, "placeholder", None) == label:
+                return box
+            # Para otros widgets, si algún día coinciden por 'text'
+            if getattr(box, "text", None) == label:
+                return box
+        return None
+
+    def _get_value(self, label):
+        box = self._get_field_by_label(label)
+        if box is None:
+            return ""
+        # TextBox: usa el contenido real
+        if isinstance(box, TextBox):
+            return box.getText().strip() if hasattr(box, "getText") else ""
+        # Otros widgets con getText
+        return box.getText().strip() if hasattr(box, "getText") else ""
+
+    def _set_status(self, msg, color=(255, 255, 255)):
+        if self.statusText:
+            self.statusText.text = msg
+            self.statusText.color = color
+        else:
+            print(msg)
+
+    # ==== validación de contraseña (>=8 y alfanumérica) ====
+    def _password_valid(self, pwd: str) -> bool:
+        return len(pwd) >= 8 and pwd.isalnum()
+
+    # ==== acción principal de registro en hilo ====
+    def on_register_click(self):
+        if self._is_loading:
+            return
+
+        username = self._get_value("Usuario")
+        email    = self._get_value("Correo")
+        pwd      = self._get_value("Contraseña")
+        pwd2     = self._get_value("Confirmar contraseña")
+
+        if not username or not pwd:
+            self._set_status("Complete usuario y contraseña.", (255, 200, 0)); return
+        if not self._password_valid(pwd):
+            self._set_status("La contraseña debe tener ≥8 caracteres y ser alfanumérica.", (255, 200, 0)); return
+        if pwd != pwd2:
+            self._set_status("Las contraseñas no coinciden.", (255, 120, 120)); return
+
+        extra = {
+            "nombre": self._get_value("Nombre"),
+            "apellidos": self._get_value("Apellidos"),
+            "telefono": self._get_value("Teléfono"),
+            "fecha_nacimiento": self._get_value("Fecha de nacimiento"),
+            "pais": self._get_value("País"),
+            "hobbie": self._get_value("Hobbie"),
+            "titular": self._get_value("Titular"),
+            "num_tarjeta": self._get_value("Número de tarjeta"),
+            "exp": self._get_value("Expiración (MM/AA)"),
+            "cvv": self._get_value("CVV"),
+        }
+
+        self._is_loading = True
+        self._set_status("Creando usuario...", (200, 200, 200))
+
+        def _worker():
+            try:
+                ok, msg = register_user(username, pwd, email=email or None, extra=extra)
+            except Exception as e:
+                traceback.print_exc()
+                ok, msg = False, f"Error: {e}"
+            self._register_result = (ok, msg)
+            self._is_loading = False
+
+        threading.Thread(target=_worker, daemon=True).start()
+
     def handleEvent(self, event):
         dropdownHovered = False
         mousePos = pygame.mouse.get_pos()
@@ -161,6 +249,16 @@ class RegisterScene(Scene):
                 box.update(deltaTime)
         for button in self.buttonsList:
             button.update(mousePos, scrollOffset=-self.scrollY)
+
+        # recoger resultado del hilo (si existe)
+        if hasattr(self, "_register_result"):
+            ok, msg = self._register_result
+            del self._register_result
+            if ok:
+                self._set_status("Usuario creado ✅", (0, 220, 120))
+                self.switchScene("login")   # ir a iniciar sesión inmediatamente
+            else:
+                self._set_status(msg or "No se pudo registrar.", (255, 120, 120))
 
     def draw(self, screen):
         offset = -self.scrollY
@@ -260,6 +358,9 @@ class RegisterScene(Scene):
 
 
 
+
+        if self.statusText:
+            self.statusText.draw(screen, scrollOffset=0)
 
     def openPdf(self, path):
         sistema = platform.system()

@@ -8,7 +8,11 @@ class TextBox:
         self.inactiveColor = inactiveColor
         self.activeColor = activeColor
         self.currentColor = self.inactiveColor
-        self.text = initialText
+        # --- Placeholder control ---
+        self.placeholder = initialText          # lo que se ve antes de escribir
+        self.text = ""                          # contenido real del usuario (vacío al inicio)
+        self._show_placeholder = True           # mostrar placeholder hasta que se haga click
+        # --------------------------------
         self.font = font
         self.isActive = False
         self.cursorVisible = True
@@ -30,7 +34,15 @@ class TextBox:
 
         padding = 10
         maxTextWidth = adjRect.width - padding * 2
-        displayText = self.text if not (self.isPassword and not self.showPassword) else "•" * len(self.text)
+
+        # Decidir qué mostrar: placeholder o texto real (con bullets si es password)
+        if self.text == "" and self._show_placeholder:
+            displayText = self.placeholder
+        else:
+            if self.isPassword and not self.showPassword:
+                displayText = "•" * len(self.text)
+            else:
+                displayText = self.text
 
         textToRender = displayText
         while self.font.size(textToRender)[0] > maxTextWidth and len(textToRender) > 0:
@@ -39,13 +51,14 @@ class TextBox:
         visibleSurface = self.font.render(textToRender, True, (0, 0, 0))
         screen.blit(visibleSurface, (adjRect.x + padding, adjRect.y + padding))
 
+        # Cursor parpadeante solo cuando está activo (y no mostrando placeholder)
         if self.isActive:
             self.cursorTimer += deltaTime
             if self.cursorTimer >= self.cursorInterval:
                 self.cursorVisible = not self.cursorVisible
                 self.cursorTimer = 0
 
-            if self.cursorVisible:
+            if self.cursorVisible and not (self.text == "" and self._show_placeholder):
                 cursorX = adjRect.x + padding + visibleSurface.get_width()
                 cursorY = adjRect.y + padding
                 cursorHeight = visibleSurface.get_height()
@@ -58,18 +71,33 @@ class TextBox:
                 self.isActive = True
                 self.currentColor = self.activeColor
                 self.isInvalid = False
+                # Al entrar: ocultar placeholder si no hay texto
+                if self._show_placeholder and self.text == "":
+                    self._show_placeholder = False
+                    # reset del cursor para que parpadee desde cero
+                    self.cursorTimer = 0
+                    self.cursorVisible = True
             else:
                 self.isActive = False
                 self.currentColor = self.inactiveColor
+                # Si está vacío al salir, volver a mostrar placeholder
+                if self.text == "":
+                    self._show_placeholder = True
 
         if event.type == pygame.KEYDOWN and self.isActive:
             if event.key == pygame.K_BACKSPACE:
-                self.text = self.text[:-1]
+                if len(self.text) > 0:
+                    self.text = self.text[:-1]
             elif event.key == pygame.K_RETURN:
                 self.isActive = False
                 self.currentColor = self.inactiveColor
+                if self.text == "":
+                    self._show_placeholder = True
             else:
-                self.text += event.unicode
+                # Agregar carácter escrito
+                ch = event.unicode
+                if ch:
+                    self.text += ch
 
     def update(self, deltaTime=0, scrollOffset=0):
         if self.isActive:
