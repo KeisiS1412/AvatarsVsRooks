@@ -2,14 +2,35 @@ import pygame
 from Scene import Scene
 from Buttons import Button
 from TextBoxes import TextBox
+from ImageButtons import ImageButton
 
 class LoginScene(Scene):
-    def __init__(self, font):
+    def __init__(self, font, res, switchSceneCallback):
+        self.switchScene = switchSceneCallback
         self.buttonHeigth = 75
         self.buttonLength = 400
-        self.usernameBox = TextBox(960, 500, self.buttonLength, self.buttonHeigth, font, (180,180,180), (0,120,255))
-        self.passwordBox = TextBox(960, 750, self.buttonLength, self.buttonHeigth, font, (180,180,180), (0,120,255))
-        self.loginButton = Button(960, 900, self.buttonLength, self.buttonHeigth, "Login", font, (0,100,200), (0,150,255))
+        center = res[0]//2
+        yStart = 400
+        ySpacing = 90
+        
+        self.usernameBox = TextBox(center, yStart + ySpacing * 0, self.buttonLength, self.buttonHeigth, font, (110,100,100), (180,170,170), "Username, email or number", (229, 235, 59))
+        self.passwordBox = TextBox(center,  yStart + ySpacing * 1, self.buttonLength, self.buttonHeigth, font, (110,100,100), (180,170,170), "Password", (229, 235, 59))
+        self.loginButton = Button(center, yStart + ySpacing * 2, self.buttonLength, self.buttonHeigth, "Login", font, (0,0,0), (91,81,81), (192, 58, 48))
+        self.registerButton = Button(center, yStart + ySpacing * 3, self.buttonLength, self.buttonHeigth, "Register", font, (0,0,0), (91,81,81), (192, 58, 48))
+        self.recoverPassword = Button(center, yStart + ySpacing * 4, self.buttonLength, self.buttonHeigth, "Recover Password", font, (0,0,0), (91,81,81), (192, 58, 48))
+        self.googleButton = ImageButton(center + self.buttonLength//2, yStart + ySpacing * 5 + 100, "googleLogin.png", 1)
+        self.faceRecognitionButton = ImageButton(center - self.buttonLength//2 + 75, yStart + ySpacing * 5 + 100, "faceRecognition.png", 0.20)
+        self.helpButton = ImageButton(50, 40, "helpButton.png", 0.15)
+        self.aboutButton = ImageButton(140, 40, "aboutButton.png", 0.15)
+
+        self.buttonsList = [
+        self.loginButton,
+        self.googleButton,
+        self.faceRecognitionButton,
+        self.helpButton,
+        self.aboutButton,
+        self.registerButton
+        ]
 
     def handleEvent(self, event): #Se encarga de detectar si el usuario hace una accion como clickear, teclear, etc...
         self.usernameBox.handleEvent(event)
@@ -17,12 +38,21 @@ class LoginScene(Scene):
         if self.loginButton.wasClicked(event):
             print("Username:", self.usernameBox.getText())
             print("Password:", self.passwordBox.getText())
+        if self.googleButton.wasClicked(event):
+            pass
+        if self.faceRecognitionButton.wasClicked(event):
+            pass
+        if self.registerButton.wasClicked(event):
+            self.switchScene("register")
 
     def update(self, deltaTime): #Actualizacion de la posicion del mouse
         mousePos = pygame.mouse.get_pos()
-        self.loginButton.update(mousePos)
+        for button in self.buttonsList:
+            button.update(mousePos)
+
 
     def draw(self, screen): #Dibujar los elementos en pantalla.
         self.usernameBox.draw(screen, deltaTime=0)
         self.passwordBox.draw(screen, deltaTime=0)
-        self.loginButton.draw(screen)
+        for button in self.buttonsList:
+            button.draw(screen)

@@ -9,12 +9,12 @@ BASE_W, BASE_H = 1920, 1080
 info = pygame.display.Info()
 win_w, win_h = info.current_w, info.current_h
 screen = pygame.display.set_mode((win_w, win_h), pygame.FULLSCREEN)
-pygame.display.set_caption("Registro")
+pygame.display.set_caption("Login")
 
 clock = pygame.time.Clock()
 font = pygame.font.Font("Avenir.ttf", 32)
-sceneManager = SceneManager(LoginScene(font))
-bg = (240, 240, 240)
+sceneManager = SceneManager(font, (BASE_W, BASE_H))
+bg = (218, 41, 28)
 fps = 30
 running = True
 
