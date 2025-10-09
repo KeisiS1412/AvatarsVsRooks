@@ -23,6 +23,7 @@ class InfoField:
         pygame.draw.rect(s, self.bg, self.rect, border_radius=self.radius)
         val = self.font.render(self.value, True, self.text_color)
         s.blit(val, (self.rect.x+20, self.rect.y + 45))
+        pygame.draw.rect(s, (180,180,180), self.rect, width=2, border_radius=self.radius)  # color y grosor ajustables
 
         title_surface = self.title_font.render(self.title, True, self.title_color)
         s.blit(title_surface, (self.rect.x + 20, self.rect.y - title_surface.get_height() + 45))

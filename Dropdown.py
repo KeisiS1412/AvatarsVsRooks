@@ -54,6 +54,8 @@ class Dropdown:
         cx = self.arrow_rect.centerx; cy = self.arrow_rect.centery
         pygame.draw.polygon(s, (80,80,80), [(cx-8, cy-3), (cx+8, cy-3), (cx, cy+7)])
 
+        pygame.draw.rect(s, (180,180,180), self.rect, width=2, border_radius=self.border_radius)  # color y grosor ajustables
+
         title_surface = self.title_font.render(self.title, True, self.title_color)
         s.blit(title_surface, (self.rect.x + 20, self.rect.y - title_surface.get_height() + self.title_offset_y))
 
