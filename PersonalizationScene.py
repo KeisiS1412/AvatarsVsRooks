@@ -45,12 +45,44 @@ AVATAR_R           = 68
 AVATAR_POS         = (RIGHT_CX, 220)
 BTN_PHOTO_W, BTN_PHOTO_H = 340, 46
 
+# Índices de tema 
+THEME_NAMES = ["Dark", "Default", "Bright"]
+THEME_MULTS = [0.45,   1.00,      1.35]  
+DEFAULT_THEME_INDEX = 1                   
+
+
+def mul(c, f):  # oscurece/aclara multiplicando
+    r,g,b=c; return (max(0,min(255,int(r*f))),
+                     max(0,min(255,int(g*f))),
+                     max(0,min(255,int(b*f))))
+
+def lum(c):
+    r,g,b=c; return 0.2126*r + 0.7152*g + 0.0722*b
+
 # Fuente
 TITLE_FONT_SIZE = 24
 def make_title_font():
     return pygame.font.Font("Avenir.ttf", TITLE_FONT_SIZE)
 
-# ===== Mock de “BD” =====
+def darker(c, factor=0.82):
+    r,g,b = c; return (max(0,int(r*factor)), max(0,int(g*factor)), max(0,int(b*factor)))
+
+def lighten(c, factor=0.9):
+    r,g,b=c; return (min(255,int(r+(255-r)*factor)),
+                     min(255,int(g+(255-g)*factor)),
+                     min(255,int(b+(255-b)*factor)))
+
+def lum(c):
+    r,g,b=c; return 0.2126*r+0.7152*g+0.0722*b
+
+def is_dark(c):
+    r,g,b = c
+    L = 0.2126*r + 0.7152*g + 0.0722*b
+    return L < 140  # umbral práctico
+
+def fg_for(bg_rgb):
+    return (255,255,255) if is_dark(bg_rgb) else (0,0,0)
+
 def get_current_user():
     return {
         "foto": None,
@@ -64,8 +96,11 @@ def get_current_user():
     }
 
 class PersonalizationScene(Scene):
-    def __init__(self, font):
+    def __init__(self, font, res, switchSceneCallback):  
         self.font = font
+        self.res = res                     
+        self.switchScene = switchSceneCallback
+
         self.title_font_big = pygame.font.Font("Avenir.ttf", 56)  # títulos de secciones
 
         # >>> SPOTIFY: estado/cliente
@@ -103,13 +138,25 @@ class PersonalizationScene(Scene):
             (210,210,210),
         )
 
+        def _go_main():
+            if self.switchScene:
+                self.switchScene("main")
+        self.returnBtn.on_click = _go_main
+
+
+        
+        def _go_to_main():
+            if self.switchScene:
+                self.switchScene("main")
+        self.returnBtn.on_click = _go_to_main
+
         # Tema
         self.themeDrop = Dropdown(
             LEFT_X-120, LEFT_Y0 + 3*LEFT_YSTEP, THEME_W, THEME_H,
-            self.font, ["Light", "Medium", "Dark"], initial_index=0,
+            self.font, THEME_NAMES, initial_index=DEFAULT_THEME_INDEX,
             content_offset_y=16,
             title="Theme",
-            title_font=make_title_font(),
+            title_font=make_title_font(),  
             title_color=(120,120,120))
 
         # Color de fondo
@@ -159,8 +206,12 @@ class PersonalizationScene(Scene):
             title_font=make_title_font(),
             title_color=(120,120,120)
         )
+        self.theme_bg = (245,245,245)   # color de fondo de la pantalla
+        self.theme_ui = (220,220,220)   # color de elementos (más oscuro que fondo)
+        self.theme_fg = (0,0,0)         # color de texto
 
-    # >>> SPOTIFY: helpers
+        self._apply_theme()
+
     def _ensure_spotify(self):
         """Inicializa el cliente de Spotify si hace falta."""
         if not self._spotify_available:
@@ -267,7 +318,7 @@ class PersonalizationScene(Scene):
             pass
 
         if self.muteBtn.wasClicked(event):
-            # toggle pause/resume en Spotify
+         # toggle pause/resume en Spotify
             if not self.music_muted:
                 self._spotify_pause()
                 self.music_muted = True
@@ -277,18 +328,44 @@ class PersonalizationScene(Scene):
                 self.music_muted = False
                 self.muteBtn.text = "Mute Music"
 
-        if self.returnBtn.wasClicked(event):
-            # Aquí va la lógica para volver o salir
-            pass
+        if hasattr(self.returnBtn, "handle"):
+
+            self.returnBtn.handle(event)
+        else:
+            if hasattr(self.returnBtn, "wasClicked") and self.returnBtn.wasClicked(event):
+                if getattr(self, "switchScene", None):
+                    self.switchScene("main")
 
     def update(self, dt):
-        self.colorHexField.set_value(self.colorWheel.hex())
+        # Color base elegido en la rueda
+        base = self.colorWheel.selected  
+
+        # Índice de tema 
+        t_index = self.themeDrop.index if hasattr(self, "themeDrop") else DEFAULT_THEME_INDEX
+        k = THEME_MULTS[t_index]
+
+        bg = mul(base, k)  # respeta el matiz base
+
+        
+        ui = mul(bg, 0.75)  # cajas más oscuras que el fondo
+        L = 0.2126*ui[0] + 0.7152*ui[1] + 0.0722*ui[2]
+        fg = (255,255,255) if L < 140 else (0,0,0)
+
+        self.theme_bg, self.theme_ui, self.theme_fg = bg, ui, fg
+        self._apply_theme()
+
+
+    def _theme_factors(self):
+        # valor del dropdown; si no existe, usa "Light"
+        name = self.themeDrop.value if hasattr(self, "themeDrop") else "Light"
+        return THEME_PRESETS.get(name, THEME_PRESETS["Light"])
+
 
     def draw(self, s):
-        s.fill((245,245,245))
+        s.fill(self.theme_bg)
 
-        s.blit(self.title_font_big.render("Personalización", True, (0,0,0)), (350, 80))
-        s.blit(self.title_font_big.render("Perfil", True, (0,0,0)), (BASE_W//2 + 350, 80))
+        s.blit(self.title_font_big.render("Personalization", True, self.theme_fg), (350, 80))
+        s.blit(self.title_font_big.render("Profile", True, self.theme_fg), (BASE_W//2 + 350, 80))
 
         self.returnBtn.draw(s)
 
@@ -297,10 +374,12 @@ class PersonalizationScene(Scene):
         self.f_email.draw(s)
         self.f_tel.draw(s);     self.hobbyDrop.draw(s)
 
-        t = self.font.render("Música", True, (120,120,120))
-        s.blit(t, (self.musicBox.rect.x, self.musicBox.rect.y - t.get_height() + 10))
+        
+        t = self.font.render("Music", True, self.theme_fg)
+        s.blit(t, (self.musicBox.rect.x, self.musicBox.rect.y - 30 - t.get_height() + 10))
+
         self.musicBox.draw(s, deltaTime=0)
-        self.muteBtn.draw(s) 
+        self.muteBtn.draw(s)
         self.searchBtn.draw(s)
 
         self.themeDrop.draw(s)
@@ -308,7 +387,7 @@ class PersonalizationScene(Scene):
         self.colorHexField.draw(s)
         self.colorWheel.draw(s)
 
-        self._draw_avatar(s, self.avatar_pos, self.avatar_r, self.user["foto"])
+        self._draw_avatar(s, self.avatar_pos, self.avatar_r, self.user["foto"] if hasattr(self, "user") else None)
         self.changePhotoBtn.draw(s)
 
     # helpers
@@ -328,3 +407,83 @@ class PersonalizationScene(Scene):
                 s.blit(img, rect)
             except Exception:
                 pass
+
+    def _apply_theme(self):
+        # InfoFields
+        info_fields = [self.f_nombre, self.f_ap1, self.f_ap2,
+               self.f_usuario, self.f_email, self.f_tel,
+               self.colorHexField]
+
+        for f in info_fields:
+            f.bg = self.theme_ui                      # fondo más oscuro
+            f.text_color = self.theme_fg              # texto auto (blanco si oscuro)
+            f.title_color = self.theme_fg
+            f.border_color = (max(0,int(self.theme_ui[0]*0.65)),
+                            max(0,int(self.theme_ui[1]*0.65)),
+                            max(0,int(self.theme_ui[2]*0.65)))
+
+        # Dropdowns (Theme y Hobbie si usas ambo
+
+        def paint_dd(dd):
+            dd.color_bg    = self.theme_ui
+            dd.color_hover = (max(0,int(self.theme_ui[0]*0.95)),
+                            max(0,int(self.theme_ui[1]*0.95)),
+                            max(0,int(self.theme_ui[2]*0.95)))
+            dd.color_text  = self.theme_fg
+            dd.title_color = self.theme_fg
+            dd.border_color= (max(0,int(self.theme_ui[0]*0.75)),
+                            max(0,int(self.theme_ui[1]*0.75)),
+                            max(0,int(self.theme_ui[2]*0.75)))
+            dd.arrow_color = self.theme_fg
+
+            # ⬇️ botón del dropdown (flecha) con el mismo “oscuro” que usas en botones
+            btn_base = (max(0,int(self.theme_ui[0]*0.92)),
+                        max(0,int(self.theme_ui[1]*0.92)),
+                        max(0,int(self.theme_ui[2]*0.92)))
+            btn_hover= (max(0,int(self.theme_ui[0]*0.88)),
+                        max(0,int(self.theme_ui[1]*0.88)),
+                        max(0,int(self.theme_ui[2]*0.88)))
+            dd.button_bg    = btn_base
+            dd.button_hover = btn_hover
+
+
+        paint_dd(self.hobbyDrop)
+        if hasattr(self, "themeDrop"):
+            paint_dd(self.themeDrop)
+
+        # TextBox de Música (si está en esta escena)
+        if hasattr(self, "musicBox"):
+            self.musicBox.inactiveColor = self.theme_ui
+            self.musicBox.activeColor   = (max(0,int(self.theme_ui[0]*0.92)),
+                                        max(0,int(self.theme_ui[1]*0.92)),
+                                        max(0,int(self.theme_ui[2]*0.92)))
+            self.musicBox.textColor     = self.theme_fg
+            
+            self.musicBox.currentColor  = self.musicBox.activeColor if self.musicBox.isActive else self.musicBox.inactiveColor
+
+        # Botones de esta escena
+        def paint_btn(b):
+            btn_base  = (max(0, int(self.theme_ui[0]*0.88)),
+                        max(0, int(self.theme_ui[1]*0.88)),
+                        max(0, int(self.theme_ui[2]*0.88)))
+            btn_hover = (max(0, int(self.theme_ui[0]*0.82)),
+                        max(0, int(self.theme_ui[1]*0.82)),
+                        max(0, int(self.theme_ui[2]*0.82)))
+
+            if hasattr(b, "normalColor"): b.normalColor = btn_base
+            if hasattr(b, "overColor"):   b.overColor   = btn_hover
+            if hasattr(b, "idleColor"):   b.idleColor   = btn_base
+            if hasattr(b, "hoverColor"):  b.hoverColor  = btn_hover
+
+            # Texto según tono
+            if hasattr(b, "textColor"): b.textColor = self.theme_fg
+            if hasattr(b, "fontColor"): b.fontColor = self.theme_fg
+
+            b.currentColor = b.overColor if getattr(b, "isHover", False) else b.normalColor
+
+        for b in [self.searchBtn, self.muteBtn, self.changePhotoBtn, self.returnBtn]:
+            paint_btn(b)
+
+
+        
+

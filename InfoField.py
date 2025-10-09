@@ -15,18 +15,26 @@ class InfoField:
         self.text_color = text_color
         self.bg = bg
         self.content_offset_y = content_offset_y
+        self.border_color = (180,180,180)  # nuevo
 
     def set_value(self, v):
         self.value = v
 
     def draw(self, s):
+        # 1) fondo de la tarjeta/caja
         pygame.draw.rect(s, self.bg, self.rect, border_radius=self.radius)
-        val = self.font.render(self.value, True, self.text_color)
-        s.blit(val, (self.rect.x+20, self.rect.y + 45))
-        pygame.draw.rect(s, (180,180,180), self.rect, width=2, border_radius=self.radius)  # color y grosor ajustables
 
+        # 2) borde con el color de tema (NO gris fijo)
+        pygame.draw.rect(s, self.border_color, self.rect, width=2, border_radius=self.radius)
+
+        # 3) valor
+        val = self.font.render(self.value, True, self.text_color)
+        s.blit(val, (self.rect.x + 20, self.rect.y + 45))
+
+        # 4) título
         title_surface = self.title_font.render(self.title, True, self.title_color)
         s.blit(title_surface, (self.rect.x + 20, self.rect.y - title_surface.get_height() + 45))
+
 
         
 
