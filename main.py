@@ -1,6 +1,7 @@
 import pygame
 from SceneManager import SceneManager
 from LoginScene import LoginScene
+from PersonalizationScene import PersonalizationScene
 
 pygame.init()
 
