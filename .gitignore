@@ -1,0 +1,56 @@
+
+# --- Archivos de entorno y configuración privada ---
+.env
+*.key
+*.pem
+
+# --- Archivos de base de datos locales ---
+*.db
+*.sqlite3
+
+# --- Archivos y carpetas de Python ---
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.log
+*.tmp
+*.bak
+*.swp
+
+# 📦 --- Entornos virtuales ---
+venv/
+.venv/
+env/
+ENV/
+
+# --- Configuración de IDEs y sistemas ---
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# --- Compilaciones y binarios ---
+build/
+dist/
+*.egg-info/
+*.egg
+
+# --- Archivos del sistema ---
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# --- Recursos temporales del juego ---
+*.png~
+*.jpg~
+*.tmp
+*.cache
+
+#  --- Backups o archivos exportados ---
+*.old
+*.bak
+*.orig
+*.pyc
+__pycache__/
+

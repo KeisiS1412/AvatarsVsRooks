@@ -1,5 +1,7 @@
 from LoginScene import LoginScene
 from RegisterScene import RegisterScene
+from PersonalizationScene import PersonalizationScene
+from MainWindow import MainWindow
 
 class SceneManager:
     def __init__(self, font, res):
@@ -7,12 +9,17 @@ class SceneManager:
         self.currentScene = None
         self.scenes = {
             "login": LoginScene(font, res, self.changeScene),
-            "register": RegisterScene(font, res, self.changeScene)
+            "register": RegisterScene(font, res, self.changeScene),
+            "personalization": PersonalizationScene(font, res, self.changeScene),
+            "main": MainWindow(font, res, self.changeScene)
         }
         self.changeScene("login")
 
     def changeScene(self, name):
-        self.currentScene = self.scenes[name]
+        if name in self.scenes:
+            self.currentScene = self.scenes[name]
+        else:
+            raise ValueError(f"Scene '{name}' does not exist.")
 
     def draw(self, screen):
         self.currentScene.draw(screen)
@@ -20,5 +27,6 @@ class SceneManager:
     def update(self, deltaTime):
         self.currentScene.update(deltaTime)
 
+
     def handleEvent(self, event):
-        self.currentScene.handleEvent(event)
+        pass
