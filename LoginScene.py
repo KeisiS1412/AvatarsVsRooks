@@ -46,11 +46,108 @@ class LoginScene(Scene):
             pass
         if self.registerButton.wasClicked(event):
             self.switchScene("register")
+        if self.aboutButton.wasClicked(event):
+            self.mostrar_info("About", 
+                        "Avatars vs Rooks es una aplicación diseñada para ofrecer una experiencia de usuario segura y personalizada.\n\n"
+                        "Además, Avatars vs Rooks permite a los usuarios personalizar su experiencia eligiendo colores y música que se adapten a sus preferencias, creando así un entorno más agradable y único para cada individuo.\n\n"
+                        "La aplicación está diseñada para ser intuitiva y fácil de usar, asegurando que tanto usuarios nuevos como experimentados puedan navegar por sus funciones sin dificultad.\n\n"
+                        )
+        if self.helpButton.wasClicked(event):
+            self.mostrar_info("Help", 
+                        "Bienvenido. En caso de necesitar ayuda con el registro o el login, por favor lea las siguientes instrucciones:\n\n"
+                        "Si es la primera vez que usa la aplicación: Debe registrarse llenando todos los campos del formulario y luego presionando el botón 'Register'.\n\n"
+                        "Una vez registrado, irá al apartado de Personalización, donde podrá elegir su color favorito y la música de su agrado.\n\n"
+                        "Si ya está registrado: Puede ir al apartado de Login, donde podrá iniciar sesión con su usuario y contraseña.\n\n"
+                        "Si el problema persiste, por favor contacte con soporte técnico."
+                        )
 
     def update(self, deltaTime): #Actualizacion de la posicion del mouse
         mousePos = pygame.mouse.get_pos()
         for button in self.buttonsList:
             button.update(mousePos)
+
+    def mostrar_info(self, titulo, texto):
+        """Ventana informativa a pantalla completa con botón 'Cerrar' colocado dinámicamente."""
+        screen = pygame.display.get_surface()
+        screen_w, screen_h = screen.get_size()
+
+        # Crear superficie base
+        info_surface = pygame.Surface((screen_w, screen_h))
+        info_surface.fill((240, 240, 240))  # Fondo gris claro
+        pygame.draw.rect(info_surface, (0, 0, 0), info_surface.get_rect(), 4)
+
+        # Fuentes
+        titulo_font = pygame.font.Font("Avenir.ttf", 60)
+        texto_font = pygame.font.Font("Avenir.ttf", 32)
+        boton_font = pygame.font.Font("Avenir.ttf", 36)
+
+        # --- Título ---
+        titulo_surf = titulo_font.render(titulo, True, (30, 30, 30))
+        titulo_rect = titulo_surf.get_rect(center=(screen_w // 2, 100))
+        info_surface.blit(titulo_surf, titulo_rect)
+
+        # --- Texto ---
+        x_margin = 150
+        y_start = 200
+        max_width = screen_w - 2 * x_margin
+        line_height = texto_font.get_height() + 10
+        y = y_start
+
+        parrafos = texto.split("\n\n")
+
+        for p in parrafos:
+            palabras = p.split()
+            linea = ""
+            for palabra in palabras:
+                test = f"{linea} {palabra}".strip()
+                if texto_font.size(test)[0] < max_width:
+                    linea = test
+                else:
+                    surf = texto_font.render(linea, True, (50, 50, 50))
+                    info_surface.blit(surf, (x_margin, y))
+                    y += line_height
+                    linea = palabra
+            if linea:
+                surf = texto_font.render(linea, True, (50, 50, 50))
+                info_surface.blit(surf, (x_margin, y))
+                y += line_height
+            y += 20  # espacio entre párrafos
+
+        # --- Botón CERRAR dinámico ---
+        boton_ancho, boton_alto = 240, 80
+        espacio_inferior = 120  # margen con el borde inferior
+        boton_y = min(y + 60, screen_h - espacio_inferior)  # si hay espacio, baja; si no, se queda arriba
+
+        boton_rect = pygame.Rect(screen_w // 2 - boton_ancho // 2, boton_y, boton_ancho, boton_alto)
+        texto_boton = boton_font.render("Cerrar", True, (0, 0, 0))
+        texto_rect = texto_boton.get_rect(center=boton_rect.center)
+
+        clock = pygame.time.Clock()
+        esperando = True
+
+        while esperando:
+            screen.fill((0, 0, 0))  # fondo negro por si hay bordes
+            screen.blit(info_surface, (0, 0))
+
+            # Hover visual
+            mouse_pos = pygame.mouse.get_pos()
+            hover = boton_rect.collidepoint(mouse_pos)
+            color_boton = (180, 180, 180) if hover else (200, 200, 200)
+            pygame.draw.rect(screen, color_boton, boton_rect, border_radius=12)
+            pygame.draw.rect(screen, (0, 0, 0), boton_rect, 2, border_radius=12)
+            screen.blit(texto_boton, texto_rect)
+
+            pygame.display.flip()
+
+            for e in pygame.event.get():
+                if e.type == pygame.QUIT:
+                    esperando = False
+                elif e.type == pygame.KEYDOWN:
+                    esperando = False
+                elif e.type == pygame.MOUSEBUTTONDOWN and hover:
+                    esperando = False
+
+            clock.tick(60)
 
 
     def draw(self, screen): #Dibujar los elementos en pantalla.
