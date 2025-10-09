@@ -8,6 +8,8 @@ import threading
 import traceback
 
 from auth import verify_login  # def verify_login(username_or_email, password) -> (bool, str)
+# 🔹 Importar el módulo de reconocimiento facial (para login)
+from Reconocimientofacial import ReconocimientoFacial
 
 NEXT_SCENE_AFTER_LOGIN = "home"  # cámbialo si tu escena destino tiene otro nombre
 
@@ -86,8 +88,17 @@ class LoginScene(Scene):
             self.on_login_click()
         if self.googleButton.wasClicked(event):
             pass
+
+        # 🔹 Integración del reconocimiento facial (sin alterar el resto del código)
         if self.faceRecognitionButton.wasClicked(event):
-            pass
+            try:
+                self._set_status("Abriendo cámara para reconocimiento facial...", (200, 200, 200))
+                facial = ReconocimientoFacial()
+                facial.menu()  # abre menú facial con dos botones (Login con rostro / Salir)
+                self._set_status("Reconocimiento facial finalizado ✅", (0, 255, 0))
+            except Exception as e:
+                self._set_status(f"Error en reconocimiento facial: {e}", (255, 0, 0))
+
         if self.registerButton.wasClicked(event):
             self.switchScene("register")
         if self.aboutButton.wasClicked(event):
@@ -117,22 +128,18 @@ class LoginScene(Scene):
         screen = pygame.display.get_surface()
         screen_w, screen_h = screen.get_size()
 
-        # Crear superficie base
         info_surface = pygame.Surface((screen_w, screen_h))
-        info_surface.fill((240, 240, 240))  # Fondo gris claro
+        info_surface.fill((240, 240, 240))
         pygame.draw.rect(info_surface, (0, 0, 0), info_surface.get_rect(), 4)
 
-        # Fuentes
         titulo_font = pygame.font.Font("Avenir.ttf", 60)
         texto_font = pygame.font.Font("Avenir.ttf", 32)
         boton_font = pygame.font.Font("Avenir.ttf", 36)
 
-        # --- Título ---
         titulo_surf = titulo_font.render(titulo, True, (30, 30, 30))
         titulo_rect = titulo_surf.get_rect(center=(screen_w // 2, 100))
         info_surface.blit(titulo_surf, titulo_rect)
 
-        # --- Texto ---
         x_margin = 150
         y_start = 200
         max_width = screen_w - 2 * x_margin
@@ -157,12 +164,11 @@ class LoginScene(Scene):
                 surf = texto_font.render(linea, True, (50, 50, 50))
                 info_surface.blit(surf, (x_margin, y))
                 y += line_height
-            y += 20  # espacio entre párrafos
+            y += 20
 
-        # --- Botón CERRAR dinámico ---
         boton_ancho, boton_alto = 240, 80
-        espacio_inferior = 120  # margen con el borde inferior
-        boton_y = min(y + 60, screen_h - espacio_inferior)  # si hay espacio, baja; si no, se queda arriba
+        espacio_inferior = 120
+        boton_y = min(y + 60, screen_h - espacio_inferior)
 
         boton_rect = pygame.Rect(screen_w // 2 - boton_ancho // 2, boton_y, boton_ancho, boton_alto)
         texto_boton = boton_font.render("Cerrar", True, (0, 0, 0))
@@ -172,10 +178,9 @@ class LoginScene(Scene):
         esperando = True
 
         while esperando:
-            screen.fill((0, 0, 0))  # fondo negro por si hay bordes
+            screen.fill((0, 0, 0))
             screen.blit(info_surface, (0, 0))
 
-            # Hover visual
             mouse_pos = pygame.mouse.get_pos()
             hover = boton_rect.collidepoint(mouse_pos)
             color_boton = (180, 180, 180) if hover else (200, 200, 200)

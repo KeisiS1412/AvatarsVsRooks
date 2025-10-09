@@ -14,6 +14,10 @@ import traceback
 # Importa tu backend real
 from auth import register_user  # def register_user(username, password, email=None, extra=None) -> (bool, str)
 
+
+from Registrofacial import RegistroFacial
+
+
 class RegisterScene(Scene):
     def __init__(self, font, res, switchSceneCallback):
         self.switchScene = switchSceneCallback
@@ -104,17 +108,13 @@ class RegisterScene(Scene):
     # ====== EVENTOS ======
         # Status para mensajes
         self.statusText = SimpleText("", screenW // 2, bottomY + 60, font, (255, 255, 255))
-
-        # Flag de carga para evitar doble click y congelamientos
         self._is_loading = False
 
-    # ==== helpers (arreglados) ====
+    # ==== helpers ====
     def _get_field_by_label(self, label):
         for box in self.fields:
-            # Para tus TextBox: el "label" ahora vive en .placeholder
             if isinstance(box, TextBox) and getattr(box, "placeholder", None) == label:
                 return box
-            # Para otros widgets, si algún día coinciden por 'text'
             if getattr(box, "text", None) == label:
                 return box
         return None
@@ -123,10 +123,8 @@ class RegisterScene(Scene):
         box = self._get_field_by_label(label)
         if box is None:
             return ""
-        # TextBox: usa el contenido real
         if isinstance(box, TextBox):
             return box.getText().strip() if hasattr(box, "getText") else ""
-        # Otros widgets con getText
         return box.getText().strip() if hasattr(box, "getText") else ""
 
     def _set_status(self, msg, color=(255, 255, 255)):
@@ -216,6 +214,21 @@ class RegisterScene(Scene):
                     print("Datos registrados:", data)
                 elif button == self.loginButton:
                     self.switchScene("login")
+
+                # 🔹 Integración del reconocimiento facial, sin cambiar tu código
+                elif button == self.faceRecognitionButton:
+                    try:
+                        usuario = self._get_value("Usuario")
+                        if not usuario:
+                            self._set_status("Ingrese un nombre de usuario antes de registrar el rostro.", (255, 200, 0))
+                        else:
+                            self._set_status("Abriendo cámara para registrar rostro...", (200, 200, 200))
+                            facial = RegistroFacial(usuario)
+                            facial.menu()  # menú facial con "Registrar rostro" y "Salir"
+                            self._set_status("Registro facial completado ✅", (0, 255, 0))
+                    except Exception as e:
+                        self._set_status(f"Error en reconocimiento facial: {e}", (255, 0, 0))
+
                 elif button == self.helpButton:
                     self.mostrar_info(
                         "Apartado de ayuda",
@@ -224,8 +237,8 @@ class RegisterScene(Scene):
                         "Una vez registrado, irá al apartado de Personalización, donde podrá elegir su color favorito y la música de su agrado.\n\n"
                         "Si ya está registrado: Puede ir al apartado de Login, donde podrá iniciar sesión con su usuario y contraseña.\n\n"
                         "Si el problema persiste, por favor contacte con soporte técnico."
-                    
                     )
+
                 elif button == self.aboutButton:
                     self.mostrar_info(
                         "Créditos - Byten",
@@ -236,11 +249,15 @@ class RegisterScene(Scene):
                         "• Keisi Solano Ramírez\n\n"
                         "Avatars vs Rooks"
                     )
+
                 elif button == self.checkBox:
                     self.openPdf("TerminosCondicionesTecnolators.pdf")
 
         if self.termsAndConditions.wasClicked(event, scrollOffset=-self.scrollY):
             self.openPdf("TerminosCondicionesTecnolators.pdf")
+
+    # 🔹 El resto (update, draw, mostrar_info, openPdf) queda idéntico
+
 
     def update(self, deltaTime):
         mousePos = pygame.mouse.get_pos()
@@ -255,7 +272,7 @@ class RegisterScene(Scene):
             ok, msg = self._register_result
             del self._register_result
             if ok:
-                self._set_status("Usuario creado ✅", (0, 220, 120))
+                self._set_status("Usuario creado ", (0, 220, 120))
                 self.switchScene("login")   # ir a iniciar sesión inmediatamente
             else:
                 self._set_status(msg or "No se pudo registrar.", (255, 120, 120))
