@@ -29,8 +29,4 @@ class SceneManager:
 
 
     def handleEvent(self, event):
-        
-        self.handle(event)
-        self.btnBack.on_click = lambda: self.switchScene("personalization") if self.switchScene else None
-
-
+        pass
