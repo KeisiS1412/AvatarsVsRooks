@@ -1,4 +1,5 @@
 # PersonalizationScene.py
+import os
 import pygame
 from Scene import Scene
 from Buttons import Button
@@ -6,6 +7,16 @@ from TextBoxes import TextBox
 from Dropdown import Dropdown
 from InfoField import InfoField
 from ColorWheel import ColorWheel
+
+# >>> SPOTIFY: imports y .env
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+    import spotipy
+    from spotipy.oauth2 import SpotifyOAuth
+except Exception:
+    spotipy = None
+    SpotifyOAuth = None
 
 # Pantalla
 BASE_W, BASE_H = 1920, 1080
@@ -35,7 +46,7 @@ AVATAR_POS         = (RIGHT_CX, 220)
 BTN_PHOTO_W, BTN_PHOTO_H = 340, 46
 
 # Fuente
-TITLE_FONT_SIZE = 24   
+TITLE_FONT_SIZE = 24
 def make_title_font():
     return pygame.font.Font("Avenir.ttf", TITLE_FONT_SIZE)
 
@@ -57,6 +68,12 @@ class PersonalizationScene(Scene):
         self.font = font
         self.title_font_big = pygame.font.Font("Avenir.ttf", 56)  # títulos de secciones
 
+        # >>> SPOTIFY: estado/cliente
+        self._sp = None
+        self._spotify_available = (spotipy is not None and SpotifyOAuth is not None)
+        self._last_play_query = None
+        self.music_muted = False  # también se usa para pause/resume
+
         # Columna izquierda
         # Música
         self.musicBox = TextBox(LEFT_X +10, LEFT_Y0 + 0*LEFT_YSTEP, MUSIC_W, MUSIC_H,
@@ -67,24 +84,23 @@ class PersonalizationScene(Scene):
                                 self.font, (220,220,220), (200,200,200))
         
         # Mute/Unmute Music 
-        self.music_muted = False
         self.muteBtn = Button(
             LEFT_X-120, LEFT_Y0 + 1*LEFT_YSTEP,  
             300, MUSIC_H,
             "Mute Music",
             self.font,
-            (235,235,235),  
-            (210,210,210),  
+            (235,235,235),
+            (210,210,210),
         )
 
         # Return
         self.returnBtn = Button(
-        120, 70,  # posición X, Y (ajusta si quieres más pegado)
-        150, 60, # ancho, alto (ajusta tamaño a tu gusto)
-        "Return",
-        self.font,
-        (235,235,235),
-        (210,210,210),
+            120, 70,
+            150, 60,
+            "Return",
+            self.font,
+            (235,235,235),
+            (210,210,210),
         )
 
         # Tema
@@ -93,7 +109,7 @@ class PersonalizationScene(Scene):
             self.font, ["Light", "Medium", "Dark"], initial_index=0,
             content_offset_y=16,
             title="Theme",
-            title_font=make_title_font(),  # igual que InfoField
+            title_font=make_title_font(),
             title_color=(120,120,120))
 
         # Color de fondo
@@ -102,9 +118,9 @@ class PersonalizationScene(Scene):
                                        title_font=make_title_font(), content_offset_y=16)
         hex_rect = self.colorHexField.rect
         self.colorWheel = ColorWheel(
-            center=(hex_rect.centerx + 340, hex_rect.centery),  # 340 es ejemplo, ajusta horizontalmente
+            center=(hex_rect.centerx + 340, hex_rect.centery),
             radius=WHEEL_RADIUS
-)
+        )
 
         # Columna derecha
         self.user = get_current_user()
@@ -121,7 +137,6 @@ class PersonalizationScene(Scene):
         dy = RIGHT_DY
         tf = make_title_font()
 
-        # Fuente
         small_title_font = pygame.font.Font("Avenir.ttf", TITLE_FONT_SIZE)
 
         self.f_nombre   = InfoField(xL, y0 + 0*dy, w, h, self.font, "First Name",     self.user["nombre"],   title_font=small_title_font, content_offset_y=16)
@@ -145,6 +160,100 @@ class PersonalizationScene(Scene):
             title_color=(120,120,120)
         )
 
+    # >>> SPOTIFY: helpers
+    def _ensure_spotify(self):
+        """Inicializa el cliente de Spotify si hace falta."""
+        if not self._spotify_available:
+            print("[Spotify] Spotipy no disponible. Instala 'spotipy' y 'python-dotenv'.")
+            return False
+        if self._sp is None:
+            cid = os.getenv("SPOTIPY_CLIENT_ID")
+            csc = os.getenv("SPOTIPY_CLIENT_SECRET")
+            red = os.getenv("SPOTIPY_REDIRECT_URI", "http://127.0.0.1:8888/callback")
+            scope = os.getenv("SPOTIPY_SCOPE", "user-read-playback-state,user-modify-playback-state")
+
+            if not cid or not csc:
+                print("[Spotify] Falta SPOTIPY_CLIENT_ID/SECRET en .env")
+                return False
+
+            self._sp = spotipy.Spotify(
+                auth_manager=SpotifyOAuth(
+                    client_id=cid, client_secret=csc, redirect_uri=red, scope=scope
+                )
+            )
+        return True
+
+    def _get_active_device_id(self):
+        try:
+            devices = self._sp.devices()
+            devs = devices.get("devices", [])
+            if not devs:
+                print("[Spotify] No hay dispositivo activo. Abre Spotify en tu PC o celular.")
+                return None
+            return devs[0].get("id")
+        except Exception as e:
+            print(f"[Spotify] Error al obtener dispositivos: {e}")
+            return None
+
+    def _parse_song_artist(self, text):
+        """Acepta: 'Canción - Artista', 'Canción / Artista', 'Canción, Artista' o solo 'Canción'."""
+        if not text:
+            return ("", "")
+        seps = [" - ", " / ", ", "]
+        for sep in seps:
+            if sep in text:
+                name, artist = text.split(sep, 1)
+                return (name.strip(), artist.strip())
+        # si no contiene separador, todo es 'canción'
+        return (text.strip(), "")
+
+    def _play_from_textbox(self):
+        if not self._ensure_spotify():
+            return
+        # Usa el texto que el usuario escribió
+        query = getattr(self.musicBox, "text", "").strip()
+        if not query:
+            print("[Spotify] Escribe una canción (y opcionalmente el artista).")
+            return
+
+        name, artist = self._parse_song_artist(query)
+        try:
+            q = f"track:{name}" + (f" artist:{artist}" if artist else "")
+            results = self._sp.search(q=q, type="track", limit=1)
+            items = results.get("tracks", {}).get("items", [])
+            if not items:
+                print("[Spotify] No se encontró la canción con esos datos.")
+                return
+            track = items[0]
+            uri = track["uri"]
+            device_id = self._get_active_device_id()
+            if not device_id:
+                return
+            self._sp.start_playback(device_id=device_id, uris=[uri])
+            self._last_play_query = query
+            self.music_muted = False
+            print(f"[Spotify] Reproduciendo '{track['name']}' - {', '.join(a['name'] for a in track['artists'])}")
+        except Exception as e:
+            print(f"[Spotify] Error al reproducir: {e}")
+
+    def _spotify_pause(self):
+        if not self._ensure_spotify():
+            return
+        try:
+            self._sp.pause_playback()
+            print("[Spotify] Pausado.")
+        except Exception as e:
+            print(f"[Spotify] Error al pausar: {e}")
+
+    def _spotify_resume(self):
+        if not self._ensure_spotify():
+            return
+        try:
+            self._sp.start_playback()
+            print("[Spotify] Reproducción reanudada.")
+        except Exception as e:
+            print(f"[Spotify] Error al reanudar: {e}")
+
     def handleEvent(self, event):
         self.musicBox.handleEvent(event)
         self.themeDrop.handleEvent(event)
@@ -152,15 +261,21 @@ class PersonalizationScene(Scene):
         self.colorWheel.handleEvent(event)
 
         if self.searchBtn.wasClicked(event):
-            pass
+            self._play_from_textbox()
 
         if self.changePhotoBtn.wasClicked(event):
             pass
 
         if self.muteBtn.wasClicked(event):
-            # Aquí va la lógica de mute/unmute
-            self.music_muted = not self.music_muted
-            self.muteBtn.text = "Unmute Music" if self.music_muted else "Mute Music"
+            # toggle pause/resume en Spotify
+            if not self.music_muted:
+                self._spotify_pause()
+                self.music_muted = True
+                self.muteBtn.text = "Unmute Music"
+            else:
+                self._spotify_resume()
+                self.music_muted = False
+                self.muteBtn.text = "Mute Music"
 
         if self.returnBtn.wasClicked(event):
             # Aquí va la lógica para volver o salir
@@ -182,7 +297,6 @@ class PersonalizationScene(Scene):
         self.f_email.draw(s)
         self.f_tel.draw(s);     self.hobbyDrop.draw(s)
 
-        
         t = self.font.render("Música", True, (120,120,120))
         s.blit(t, (self.musicBox.rect.x, self.musicBox.rect.y - t.get_height() + 10))
         self.musicBox.draw(s, deltaTime=0)
@@ -197,7 +311,6 @@ class PersonalizationScene(Scene):
         self._draw_avatar(s, self.avatar_pos, self.avatar_r, self.user["foto"])
         self.changePhotoBtn.draw(s)
 
-        
     # helpers
     def _draw_small_title(self, s, text, target_rect, color=(120,120,120)):
         title_font = make_title_font()
