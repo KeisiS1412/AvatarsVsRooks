@@ -20,14 +20,13 @@ COLOR_TEXTO_BOTON = (255, 255, 255)
 COLOR_TITULO = (0, 0, 0)
 
 USERS_DIR = "users_lbph"
-USER_DATA_DIR = "usuarios_encriptados"
-
 os.makedirs(USERS_DIR, exist_ok=True)
-os.makedirs(USER_DATA_DIR, exist_ok=True)
+
 
 def draw_text(surface, text, pos, color=COLOR_TEXTO):
     text_render = FONT.render(text, True, color)
     surface.blit(text_render, pos)
+
 
 class ReconocimientoFacialLBPH:
     def __init__(self, usuario_actual=None):
@@ -35,30 +34,21 @@ class ReconocimientoFacialLBPH:
         self.name = usuario_actual.strip().lower() if usuario_actual else ""
         print(f"[DEBUG] Usuario activo: {self.name}")
 
-    def usuario_validado(self, nombre):
-        ruta = os.path.join(USER_DATA_DIR, f"{nombre.lower()}.dat")
-        return os.path.exists(ruta)
-
     def registrar_rostro(self):
-        if not self.name:
-            self.show_message(" No se detectó usuario activo.")
-            return
-
-        if not self.usuario_validado(self.name):
-            self.show_message("Debe completar su información antes de registrar su rostro.")
-            return
-
+        """Captura 10 imágenes del rostro actual y las guarda como .npy sin validación previa"""
         cap = cv2.VideoCapture(0)
+        if not cap.isOpened():
+            print("No se pudo acceder a la cámara.")
+            return
+
         face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_frontalface_default.xml")
         count = 0
         faces_data = []
+        clock = pygame.time.Clock()
 
-        self.show_message(f"{self.name.upper()}, mira a la cámara. Se capturarán 10 imágenes automáticamente.")
-
-        while True:
+        while self.running:
             ret, frame = cap.read()
             if not ret:
-                self.show_message("No se pudo acceder a la cámara.")
                 break
 
             gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
@@ -69,27 +59,43 @@ class ReconocimientoFacialLBPH:
                 face_resized = cv2.resize(face, (100, 100))
                 faces_data.append(face_resized)
                 count += 1
+                cv2.rectangle(frame, (x, y), (x+w, y+h), (0,255,0), 2)
 
-                cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 255, 0), 2)
-                cv2.putText(frame, f"Captura {count}/10", (x, y-10),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0,255,0), 2)
+            # Mostrar cámara en ventana Pygame
+            frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            frame_surface = pygame.surfarray.make_surface(np.flipud(np.rot90(frame_rgb)))
+            SCREEN.fill(COLOR_FONDO)
+            SCREEN.blit(frame_surface, (100, 50))
+            draw_text(SCREEN, f"Captura {count}/10", (WIDTH//2 - 80, HEIGHT - 60), (255,255,255))
+            draw_text(SCREEN, "Presiona Q para cancelar", (WIDTH//2 - 120, HEIGHT - 30), (0,0,0))
+            pygame.display.flip()
+            clock.tick(30)
 
-            cv2.imshow("Registrando rostro", frame)
-            if count >= 10 or cv2.waitKey(1) & 0xFF == ord('q'):
+            # Eventos Pygame
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    cap.release()
+                    pygame.quit()
+                    return
+                elif event.type == pygame.KEYDOWN and event.key == pygame.K_q:
+                    cap.release()
+                    return
+
+            if count >= 10:
                 break
 
         cap.release()
-        cv2.destroyAllWindows()
-
         if faces_data:
             mean_face = np.mean(faces_data, axis=0)
-            filepath = os.path.join(USERS_DIR, f"{self.name}.npy")
+            filename = f"{self.name or 'rostro_generico'}.npy"
+            filepath = os.path.join(USERS_DIR, filename)
             np.save(filepath, mean_face)
-            self.show_message(f"Rostro guardado correctamente como '{filepath}'")
+            print(f" Rostro guardado correctamente en '{filepath}'")
         else:
-            self.show_message(" No se capturó ningún rostro.")
+            print(" No se capturó ningún rostro.")
 
     def cargar_rostros(self):
+        """Carga los rostros .npy guardados en users_lbph"""
         encodings, names = [], []
         for file in os.listdir(USERS_DIR):
             if file.endswith(".npy"):
@@ -100,20 +106,25 @@ class ReconocimientoFacialLBPH:
         return encodings, names
 
     def login_con_rostro(self):
+        """Compara el rostro actual con los registrados"""
         known_encodings, known_names = self.cargar_rostros()
         if not known_encodings:
-            self.show_message(" No hay rostros registrados.")
+            print(" No hay rostros registrados.")
             return
 
         cap = cv2.VideoCapture(0)
+        if not cap.isOpened():
+            print("No se pudo acceder a la cámara.")
+            return
+
         face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_frontalface_default.xml")
+        clock = pygame.time.Clock()
         start_time = time.time()
         recognized = False
 
-        while True:
+        while self.running:
             ret, frame = cap.read()
             if not ret:
-                self.show_message("No se pudo acceder a la cámara.")
                 break
 
             gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
@@ -132,53 +143,55 @@ class ReconocimientoFacialLBPH:
                     recognized = True
                 else:
                     label = "Desconocido"
-                    color = (0, 0, 255)
+                    color = (255, 0, 0)
 
                 cv2.rectangle(frame, (x, y), (x+w, y+h), color, 2)
                 cv2.putText(frame, label, (x, y - 10),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.9, color, 2)
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.8, color, 2)
 
-                if recognized:
-                    cv2.imshow("Login con rostro", frame)
-                    cv2.waitKey(1000)
+            # Mostrar cámara dentro de Pygame
+            frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            frame_surface = pygame.surfarray.make_surface(np.flipud(np.rot90(frame_rgb)))
+            SCREEN.fill(COLOR_FONDO)
+            SCREEN.blit(frame_surface, (100, 50))
+            draw_text(SCREEN, "Presiona Q para cancelar", (WIDTH//2 - 120, HEIGHT - 30), (0,0,0))
+            pygame.display.flip()
+            clock.tick(30)
+
+            # Eventos Pygame
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
                     cap.release()
-                    cv2.destroyAllWindows()
-                    self.show_message(f" Bienvenido, {name}!")
+                    pygame.quit()
+                    return
+                elif event.type == pygame.KEYDOWN and event.key == pygame.K_q:
+                    cap.release()
                     return
 
-            cv2.imshow("Login con rostro", frame)
-            if time.time() - start_time > 15 or cv2.waitKey(1) & 0xFF == ord('q'):
+            if recognized:
+                print(f"Bienvenido, {name}!")
+                time.sleep(1)
+                cap.release()
+                return
+
+            if time.time() - start_time > 15:
                 break
 
         cap.release()
-        cv2.destroyAllWindows()
-        self.show_message(" Login fallido. No se reconoció ningún rostro.")
-
-    def show_message(self, text):
-        running = True
-        while running:
-            SCREEN.fill(COLOR_FONDO)
-            draw_text(SCREEN, text, (50, HEIGHT//2 - 20))
-            draw_text(SCREEN, "Presiona ENTER para continuar",
-                      (50, HEIGHT//2 + 30), (0, 0, 0))
-            pygame.display.flip()
-
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    running = False
-                elif event.type == pygame.KEYDOWN and event.key == pygame.K_RETURN:
-                    running = False
+        print(" Login fallido: rostro no reconocido.")
 
     def menu(self):
+        """Menú principal en Pygame"""
         buttons = [
             ("Registrar rostro", self.registrar_rostro),
             ("Login con rostro", self.login_con_rostro),
             ("Salir", self.exit_app)
         ]
+        clock = pygame.time.Clock()
 
         while self.running:
             SCREEN.fill(COLOR_FONDO)
-            draw_text(SCREEN, f"Reconocimiento Facial ({self.name})", (150, 50), COLOR_TITULO)
+            draw_text(SCREEN, f"Reconocimiento Facial ({self.name or 'Invitado'})", (150, 50), COLOR_TITULO)
 
             mouse_pos = pygame.mouse.get_pos()
             for i, (text, action) in enumerate(buttons):
@@ -187,23 +200,20 @@ class ReconocimientoFacialLBPH:
                 pygame.draw.rect(SCREEN, color, rect)
                 draw_text(SCREEN, text, (rect.x + 50, rect.y + 15), COLOR_TEXTO_BOTON)
 
+                # Click del mouse
+                if pygame.mouse.get_pressed()[0] and rect.collidepoint(mouse_pos):
+                    action()
+
             pygame.display.flip()
+            clock.tick(30)
 
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     self.exit_app()
-                elif event.type == pygame.MOUSEBUTTONDOWN:
-                    for i, (text, action) in enumerate(buttons):
-                        rect = pygame.Rect(WIDTH//2 - 150, 150 + i*100, 300, 60)
-                        if rect.collidepoint(event.pos):
-                            action()
 
     def exit_app(self):
+        """Salir del programa"""
         self.running = False
         pygame.quit()
 
-# === Ejecutar ===
-if __name__ == "__main__":
-    #  Aquí puedes probar pasando el nombre de usuario directamente:
-    app = ReconocimientoFacialLBPH(usuario_actual="jose")
-    app.menu()
+
