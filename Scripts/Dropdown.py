@@ -18,7 +18,7 @@ class Dropdown:
         self.title_offset_y = title_offset_y
 
         self.title = title
-        self.title_font = pygame.font.Font("Avenir.ttf", 24) if title_font is None else title_font
+        self.title_font = pygame.font.Font("Assets/Avenir.ttf", 24) if title_font is None else title_font
         self.title_color = title_color
 
         self.arrow_rect = pygame.Rect(self.rect.right - h, self.rect.top, h, h)

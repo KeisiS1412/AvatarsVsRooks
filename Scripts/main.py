@@ -13,7 +13,7 @@ screen = pygame.display.set_mode((win_w, win_h), pygame.FULLSCREEN)
 pygame.display.set_caption("Login")
 
 clock = pygame.time.Clock()
-font = pygame.font.Font("Avenir.ttf", 32)
+font = pygame.font.Font("Assets/Avenir.ttf", 32)
 sceneManager = SceneManager(font, (BASE_W, BASE_H))
 bg = (218, 41, 28)
 fps = 30

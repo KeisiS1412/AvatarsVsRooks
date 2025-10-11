@@ -80,12 +80,11 @@ class RegisterScene(Scene):
                                      "Register", font, (0, 0, 0), (91, 81, 81), (192, 58, 48))
         self.loginButton = Button(rightX, bottomY, self.fieldWidth, self.fieldHeight,
                                   "Login", font, (0, 0, 0), (91, 81, 81), (192, 58, 48))
-        self.faceRecognitionButton = ImageButton(screenW//2, yStart + ySpacing * totalRows + 40, "faceRecognition.png", 0.15)
-        self.helpButton = ImageButton(50, 40, "helpButton.png", 0.15)
-        self.aboutButton = ImageButton(140, 40, "aboutButton.png", 0.15)
-        self.checkBox = ImageButton(screenW//2 - 375, yStart + ySpacing * (totalRows + 1), "checkboxBlank.png", 0.05, "checkboxFull.png")
+        self.faceRecognitionButton = ImageButton(screenW//2, yStart + ySpacing * totalRows + 40, "Assets/faceRecognition.png", 0.15)
+        self.helpButton = ImageButton(50, 40, "Assets/helpButton.png", 0.15)
+        self.aboutButton = ImageButton(140, 40, "Assets/aboutButton.png", 0.15)
+        self.checkBox = ImageButton(screenW//2 - 375, yStart + ySpacing * (totalRows + 1), "Assets/checkboxBlank.png", 0.05, "Assets/checkboxFull.png")
 
-<<<<<<< Updated upstream
         self.subscribeButton = Button(screenW // 2, 
                                       bottomY + 100, 
                                       self.fieldWidth, self.fieldHeight,
@@ -95,13 +94,8 @@ class RegisterScene(Scene):
                             self.helpButton, self.aboutButton, self.checkBox, self.subscribeButton]
 
         self.termsAndConditions = SimpleText("He leído y acepto los términos y condiciones",
-=======
-        self.buttonsList = [self.registerButton, self.loginButton, self.faceRecognitionButton,
-                            self.helpButton, self.aboutButton, self.checkBox]
-        self.termsAndConditions = SimpleText("I have read and accept the terms and conditions",
->>>>>>> Stashed changes
                                              screenW // 2, yStart + ySpacing * (totalRows + 1),
-                                             font, (0, 0, 0))
+                                             font, (0, 0, 0), (218, 41, 28))
 
     def handleEvent(self, event):
         dropdownHovered = False
@@ -127,39 +121,24 @@ class RegisterScene(Scene):
 
         for box in self.fields:
             box.handleEvent(event, scrollOffset=-self.scrollY)
-<<<<<<< Updated upstream
-
-=======
->>>>>>> Stashed changes
         for button in self.buttonsList:
             if button.wasClicked(event, scrollOffset=-self.scrollY):
                 if button == self.registerButton:
-                    data = {box.text: box.getText() for box in self.fields}
-                    print("Datos registrados:", data)
-<<<<<<< Updated upstream
+                    pass
                 elif button == self.loginButton:
                     self.switchScene("login")
                 elif button == self.subscribeButton:
-                    print("¡Usuario se ha suscrito!")
+                    pass
                 elif button == self.checkBox:
-                    self.openPdf("TerminosCondicionesTecnolators.pdf")
+                    if self.checkBox.clicked == True:
+                        self.openPdf("TerminosCondicionesTecnolators.pdf")
 
         if self.termsAndConditions.wasClicked(event, scrollOffset=-self.scrollY):
-            self.openPdf("TerminosCondicionesTecnolators.pdf")
+           self.openPdf("TerminosCondicionesTecnolators.pdf")
 
-=======
-                if button == self.loginButton:
-                    self.switchScene("login")
-                if button == self.checkBox:
-                    self.openPdf("TerminosCondicionesTecnolators.pdf")
-        if self.termsAndConditions.wasClicked(event, scrollOffset=-self.scrollY):
-            self.openPdf("TerminosCondicionesTecnolators.pdf")
-
-
->>>>>>> Stashed changes
     def update(self, deltaTime):
         mousePos = pygame.mouse.get_pos()
-        for box in self.fields:
+        for box in self.fields:  
             if hasattr(box, "update"):
                 box.update(deltaTime)
         for button in self.buttonsList:
@@ -173,10 +152,6 @@ class RegisterScene(Scene):
         for button in self.buttonsList:
             button.draw(screen, scrollOffset=offset)
         self.termsAndConditions.draw(screen, scrollOffset=offset)
-<<<<<<< Updated upstream
-=======
-
->>>>>>> Stashed changes
         for box in self.fields:
             if isinstance(box, DropdownButton):
                 box.draw(screen, deltaTime=0, scrollOffset=offset)

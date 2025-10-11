@@ -18,10 +18,10 @@ class LoginScene(Scene):
         self.loginButton = Button(center, yStart + ySpacing * 2, self.buttonLength, self.buttonHeigth, "Login", font, (0,0,0), (91,81,81), (192, 58, 48))
         self.registerButton = Button(center, yStart + ySpacing * 3, self.buttonLength, self.buttonHeigth, "Register", font, (0,0,0), (91,81,81), (192, 58, 48))
         self.recoverPassword = Button(center, yStart + ySpacing * 4, self.buttonLength, self.buttonHeigth, "Recover Password", font, (0,0,0), (91,81,81), (192, 58, 48))
-        self.googleButton = ImageButton(center + self.buttonLength//2, yStart + ySpacing * 5 + 100, "googleLogin.png", 1)
-        self.faceRecognitionButton = ImageButton(center - self.buttonLength//2 + 75, yStart + ySpacing * 5 + 100, "faceRecognition.png", 0.20)
-        self.helpButton = ImageButton(50, 40, "helpButton.png", 0.15)
-        self.aboutButton = ImageButton(140, 40, "aboutButton.png", 0.15)
+        self.googleButton = ImageButton(center + self.buttonLength//2, yStart + ySpacing * 5 + 100, "Assets/googleLogin.png", 1)
+        self.faceRecognitionButton = ImageButton(center - self.buttonLength//2 + 75, yStart + ySpacing * 5 + 100, "Assets/faceRecognition.png", 0.20)
+        self.helpButton = ImageButton(50, 40, "Assets/helpButton.png", 0.15)
+        self.aboutButton = ImageButton(140, 40, "Assets/aboutButton.png", 0.15)
         
 
         self.buttonsList = [

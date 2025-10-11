@@ -23,7 +23,7 @@ class ImageButton(Button):
         screen.blit(self.currentImage, adjRect)
 
     def update(self, mousePos=None, scrollOffset=0):
-        pass  # No necesitamos hover
+        pass 
 
     def handleClick(self):
         self.clicked = not self.clicked

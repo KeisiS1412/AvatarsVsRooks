@@ -7,7 +7,7 @@ class Button:
         self.text = text
         self.font = font
         self.normalColor = normalColor
-        self.hoverColor = hoverColor
+        self.hoverColor = hoverColor  # Ya no se usa, pero puedes conservarlo si lo necesitas más adelante
         self.currentColor = normalColor
         self.fontColor = fontColor  
 
@@ -19,8 +19,7 @@ class Button:
         screen.blit(textRender, textRect)
 
     def update(self, mousePos, scrollOffset=0):
-        adjRect = self.rect.move(0, -scrollOffset)
-        self.currentColor = self.hoverColor if adjRect.collidepoint(mousePos) else self.normalColor
+        pass  # Hover eliminado, no se actualiza el color
 
     def wasClicked(self, event, scrollOffset=0):
         adjRect = self.rect.move(0, -scrollOffset)

@@ -1,5 +1,7 @@
 from LoginScene import LoginScene
 from RegisterScene import RegisterScene
+from AboutScene import AboutScene
+from HelpScene import HelpScene
 
 class SceneManager:
     def __init__(self, font, res):
@@ -7,7 +9,9 @@ class SceneManager:
         self.currentScene = None
         self.scenes = {
             "login": LoginScene(font, res, self.changeScene),
-            "register": RegisterScene(font, res, self.changeScene)
+            "register": RegisterScene(font, res, self.changeScene),
+            "About": AboutScene(font, res, self.changeScene),
+            "Help": HelpScene(font, res, self.changeScene)
         }
         self.changeScene("login")
 
