@@ -1,7 +1,9 @@
 import pygame
 
 class DropdownButton:
-    def __init__(self, centerX, centerY, width, height, font, options, textColor, bgColor, hoverColor, placeholder, maxVisible=3):
+    """Menú desplegable con desplazamiento para selección de opciones."""
+
+    def __init__(self, centerX, centerY, width, height, font, options, textColor, bgColor, hoverColor, placeholder, maxVisible=3):  # Inicializa el menú desplegable
         self.optionHeight = height
         self.font = font
         self.options = options
@@ -16,7 +18,7 @@ class DropdownButton:
         self.rect = pygame.Rect(0, 0, width, height)
         self.rect.center = (centerX, centerY)
 
-    def handleEvent(self, event, scrollOffset=0):
+    def handleEvent(self, event, scrollOffset=0):  # Maneja clics y desplazamiento del menú
         adjRect = self.rect.move(0, -scrollOffset)
         if event.type == pygame.MOUSEBUTTONDOWN:
             if adjRect.collidepoint(event.pos):
@@ -47,7 +49,7 @@ class DropdownButton:
                 maxOffset = max(0, len(self.options) - self.maxVisible)
                 self.scrollOffset = max(0, min(self.scrollOffset - event.y, maxOffset))
 
-    def draw(self, screen, deltaTime=0, scrollOffset=0):
+    def draw(self, screen, deltaTime=0, scrollOffset=0):  # Dibuja el botón principal y las opciones visibles
         adjRect = self.rect.move(0, -scrollOffset)
         pygame.draw.rect(screen, self.bgColor, adjRect, border_radius=8)
         pygame.draw.rect(screen, (0, 0, 0), adjRect, width=2, border_radius=8)
@@ -75,9 +77,8 @@ class DropdownButton:
             totalHeight = self.optionHeight * len(visibleOptions)
             pygame.draw.rect(screen, (0, 0, 0), (adjRect.x, adjRect.bottom, adjRect.width, totalHeight), width=2, border_radius=8)
 
-    def update(self, deltaTime=0, scrollOffset=0):
-        # Método vacío para compatibilidad con RegisterScene.update()
+    def update(self, deltaTime=0, scrollOffset=0):  # Mantiene compatibilidad con otras escenas
         pass
 
-    def getText(self):
+    def getText(self):  # Retorna el texto seleccionado
         return self.selected

@@ -1,5 +1,5 @@
 import pygame
-from TextBoxes import TextBox
+from Scripts.TextBoxes import TextBox
 from datetime import datetime
 
 class CalendarTextBox(TextBox):

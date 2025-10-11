@@ -3,9 +3,11 @@ from SceneManager import SceneManager
 from LoginScene import LoginScene
 from PersonalizationScene import PersonalizationScene
 
+"""Archivo principal del programa. Gestiona la ventana, escenas y ciclo principal del juego."""
+
 pygame.init()
 
-BASE_W, BASE_H = 1920, 1080
+BASE_W, BASE_H = 1920, 1080  # Resolución base
 
 info = pygame.display.Info()
 win_w, win_h = info.current_w, info.current_h
@@ -21,10 +23,10 @@ running = True
 
 canvas = pygame.Surface((BASE_W, BASE_H))
 
-while running:
+while running:  # Ciclo principal del programa
     dt = clock.tick(fps)
 
-    for event in pygame.event.get():
+    for event in pygame.event.get():  # Manejo de eventos
         if event.type == pygame.QUIT:
             running = False
 
@@ -32,16 +34,16 @@ while running:
             x, y = event.pos
             lx = int(x * BASE_W / win_w)
             ly = int(y * BASE_H / win_h)
-            event = pygame.event.Event(event.type, {**event.dict, "pos": (lx, ly)})
+            event = pygame.event.Event(event.type, {**event.dict, "pos": (lx, ly)})  # Ajusta la posición del mouse
 
-        sceneManager.handleEvent(event)
+        sceneManager.handleEvent(event)  # Envía los eventos a la escena actual
 
-    sceneManager.update(dt)
+    sceneManager.update(dt)  # Actualiza la lógica de la escena
 
     canvas.fill(bg)
     sceneManager.draw(canvas)
     scaled = pygame.transform.smoothscale(canvas, (win_w, win_h))
     screen.blit(scaled, (0, 0))
-    pygame.display.flip()
+    pygame.display.flip()  # Actualiza la pantalla
 
-pygame.quit()
+pygame.quit()  # Cierra Pygame

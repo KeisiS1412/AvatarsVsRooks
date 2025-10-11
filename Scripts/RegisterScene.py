@@ -9,8 +9,11 @@ import subprocess
 import platform
 import os
 
+
 class RegisterScene(Scene):
-    def __init__(self, font, res, switchSceneCallback):
+    """Escena de registro con campos de texto, menús desplegables y botones."""
+
+    def __init__(self, font, res, switchSceneCallback):  # Inicializa la escena
         self.switchScene = switchSceneCallback
         self.fieldHeight = 75
         self.fieldWidth = 450
@@ -24,6 +27,7 @@ class RegisterScene(Scene):
         self.scrollY = 0
         self.maxScroll = 0
 
+        # Lista de países
         countryList = [
             "Afghanistan","Albania","Algeria","Andorra","Angola","Argentina","Armenia","Australia",
             "Austria","Azerbaijan","Bahamas","Bahrain","Bangladesh","Barbados","Belarus","Belgium",
@@ -43,6 +47,7 @@ class RegisterScene(Scene):
             "Uruguay","Uzbekistan","Venezuela","Vietnam","Yemen","Zambia","Zimbabwe"
         ]
 
+        # Pares de campos (etiqueta izquierda, etiqueta derecha)
         fieldPairs = [
             ("Nombre", "Apellidos"),
             ("Usuario", "Teléfono"),
@@ -76,31 +81,38 @@ class RegisterScene(Scene):
         bottomY = yStart + (totalRows + 2) * ySpacing + 40
         self.maxScroll = max(0, bottomY - (screenH - 200))
 
+        # Botones principales
         self.registerButton = Button(leftX, bottomY, self.fieldWidth, self.fieldHeight,
                                      "Register", font, (0, 0, 0), (91, 81, 81), (192, 58, 48))
         self.loginButton = Button(rightX, bottomY, self.fieldWidth, self.fieldHeight,
                                   "Login", font, (0, 0, 0), (91, 81, 81), (192, 58, 48))
-        self.faceRecognitionButton = ImageButton(screenW//2, yStart + ySpacing * totalRows + 40, "Assets/faceRecognition.png", 0.15)
+        self.faceRecognitionButton = ImageButton(screenW//2, yStart + ySpacing * totalRows + 40, 
+                                                 "Assets/faceRecognition.png", 0.15)
         self.helpButton = ImageButton(50, 40, "Assets/helpButton.png", 0.15)
         self.aboutButton = ImageButton(140, 40, "Assets/aboutButton.png", 0.15)
-        self.checkBox = ImageButton(screenW//2 - 375, yStart + ySpacing * (totalRows + 1), "Assets/checkboxBlank.png", 0.05, "Assets/checkboxFull.png")
+        self.checkBox = ImageButton(screenW//2 - 375, yStart + ySpacing * (totalRows + 1),
+                                    "Assets/checkboxBlank.png", 0.05, "Assets/checkboxFull.png")
 
-        self.subscribeButton = Button(screenW // 2, 
-                                      bottomY + 100, 
+        self.subscribeButton = Button(screenW // 2, bottomY + 100,
                                       self.fieldWidth, self.fieldHeight,
                                       "Suscribirse", font, (0, 0, 0), (91, 81, 81), (192, 58, 48))
 
-        self.buttonsList = [self.registerButton, self.loginButton, self.faceRecognitionButton,
-                            self.helpButton, self.aboutButton, self.checkBox, self.subscribeButton]
+        self.buttonsList = [
+            self.registerButton, self.loginButton, self.faceRecognitionButton,
+            self.helpButton, self.aboutButton, self.checkBox, self.subscribeButton
+        ]
 
-        self.termsAndConditions = SimpleText("He leído y acepto los términos y condiciones",
-                                             screenW // 2, yStart + ySpacing * (totalRows + 1),
-                                             font, (0, 0, 0), (218, 41, 28))
+        self.termsAndConditions = SimpleText(
+            "He leído y acepto los términos y condiciones",
+            screenW // 2, yStart + ySpacing * (totalRows + 1),
+            font, (0, 0, 0), (218, 41, 28)
+        )
 
-    def handleEvent(self, event):
+    def handleEvent(self, event):  # Maneja eventos del usuario
         dropdownHovered = False
         mousePos = pygame.mouse.get_pos()
 
+        # Verifica si el cursor está sobre un menú desplegable expandido
         for box in self.fields:
             if isinstance(box, DropdownButton) and box.expanded:
                 adjRect = box.rect.move(0, -self.scrollY)
@@ -110,6 +122,7 @@ class RegisterScene(Scene):
                     dropdownHovered = True
                     break
 
+        # Control de desplazamiento
         if event.type == pygame.MOUSEWHEEL:
             if dropdownHovered:
                 for box in self.fields:
@@ -119,6 +132,7 @@ class RegisterScene(Scene):
                 self.scrollY += event.y * 40
                 self.scrollY = max(-self.maxScroll, min(0, self.scrollY))
 
+        # Manejo de eventos para campos y botones
         for box in self.fields:
             box.handleEvent(event, scrollOffset=-self.scrollY)
         for button in self.buttonsList:
@@ -129,14 +143,13 @@ class RegisterScene(Scene):
                     self.switchScene("login")
                 elif button == self.subscribeButton:
                     pass
-                elif button == self.checkBox:
-                    if self.checkBox.clicked == True:
-                        self.openPdf("TerminosCondicionesTecnolators.pdf")
+                elif button == self.checkBox and self.checkBox.clicked:
+                    self.openPdf("TerminosCondicionesTecnolators.pdf")
 
         if self.termsAndConditions.wasClicked(event, scrollOffset=-self.scrollY):
-           self.openPdf("TerminosCondicionesTecnolators.pdf")
+            self.openPdf("TerminosCondicionesTecnolators.pdf")
 
-    def update(self, deltaTime):
+    def update(self, deltaTime):  # Actualiza los elementos de la escena
         mousePos = pygame.mouse.get_pos()
         for box in self.fields:  
             if hasattr(box, "update"):
@@ -144,7 +157,7 @@ class RegisterScene(Scene):
         for button in self.buttonsList:
             button.update(mousePos, scrollOffset=-self.scrollY)
 
-    def draw(self, screen):
+    def draw(self, screen):  # Dibuja todos los elementos en pantalla
         offset = -self.scrollY
         for box in self.fields:
             if not isinstance(box, DropdownButton):
@@ -156,11 +169,11 @@ class RegisterScene(Scene):
             if isinstance(box, DropdownButton):
                 box.draw(screen, deltaTime=0, scrollOffset=offset)
 
-    def openPdf(self, path):
-        sistema = platform.system()
-        if sistema == "Windows":
+    def openPdf(self, path):  # Abre el archivo PDF según el sistema operativo
+        systemType = platform.system()
+        if systemType == "Windows":
             os.startfile(path)
-        elif sistema == "Darwin": 
+        elif systemType == "Darwin": 
             subprocess.run(["open", path])
         else:  
             subprocess.run(["xdg-open", path])
