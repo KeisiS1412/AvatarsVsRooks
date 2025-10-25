@@ -2,6 +2,7 @@ from LoginScene import LoginScene
 from RegisterScene import RegisterScene
 from AboutScene import AboutScene
 from HelpScene import HelpScene
+from GameScene import GameScene
 
 
 class SceneManager:
@@ -14,9 +15,10 @@ class SceneManager:
             "login": LoginScene(font, res, self.changeScene),
             "register": RegisterScene(font, res, self.changeScene),
             "About": AboutScene(font, res, self.changeScene),
-            "Help": HelpScene(font, res, self.changeScene)
+            "Help": HelpScene(font, res, self.changeScene),
+            "Game": GameScene(font, res, self.changeScene)
         }
-        self.changeScene("login")
+        self.changeScene("Game")
 
     def changeScene(self, name):  # Cambia la escena actual
         self.currentScene = self.scenes[name]
