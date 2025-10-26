@@ -13,6 +13,7 @@ class GameScene(Scene):
 
     def draw(self, screen): #Dibuja todos los elementos en pantalla
         self.matrix.draw(screen)
+        self.matrix.drawCoins(screen)
 
     def handleEvent(self, event): #Detección de donde se hace click y llama a las fucniones que correspondan
         #En el caso de la matriz, si hay un rook seleccionado, lo añade si cumple las condiciones
@@ -21,6 +22,9 @@ class GameScene(Scene):
                 if self.selectedRook.cost < self.coins:
                     self.coins  = self.coins - self.selectedRook.cost
                     self.matrix.addRook(event, self.selectedRook)
+
+    def update(self, dt): #Actualiza la logica de la escena
+        self.matrix.update(dt)
 
 
 
