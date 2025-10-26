@@ -2,16 +2,17 @@ import pygame
 
 class Coin:
     def __init__(self):
-        value = 25
+        self.value = 25
         self.spritesheet = pygame.image.load("Assets/coinsSpritesheet.png").convert_alpha()
         self.SPRITE_WIDTH = 16
         self.SPRITE_HEIGHT = 16
         self.row = 1
         self.sprites = self.getSprites()
+        self.position = (625,500)
+        self.rect = self.sprites[0].get_rect(topleft=self.position)
         self.currentTime = 0
         self.frameTime = 100
         self.currentFrame = 0
-        self.position = (500,500)
 
     def getSprite(self, x, y):
         """Extrae un sprite en la posición columna x, fila y"""
@@ -40,5 +41,12 @@ class Coin:
             self.currentFrame = (self.currentFrame + 1) % len(self.sprites)
 
     def draw(self, screen, pos):
+        self.rect.topleft = pos
         screen.blit(self.sprites[self.currentFrame], pos)
+
+    def detectClick(self, event):
+        x, y = event.pos
+        if self.rect.collidepoint(x, y):
+            return True
+        return False
     

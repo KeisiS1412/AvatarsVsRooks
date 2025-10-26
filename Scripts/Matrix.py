@@ -17,10 +17,10 @@ class Matrix:
         self.cellSize = (self.matrixImage.get_width()//7, self.matrixImage.get_height()//11)
         self.imagePos = (self.res[0]//2 - self.matrixImage.get_width()//2, 0)
         self.rect = pygame.Rect(
-            self.imagePos[0] + self.cellSize[0],
-            self.imagePos[1] + self.cellSize[1],
-            self.matrixImage.get_width() - 2 * self.cellSize[0],
-            self.matrixImage.get_height() - 2 * self.cellSize[1]
+            self.imagePos[0],
+            self.imagePos[1],
+            self.matrixImage.get_width(),    
+            self.matrixImage.get_height()    
         )
         coin = Coin()
         self.coins = [coin]
@@ -39,14 +39,16 @@ class Matrix:
         x, y = event.pos
         if self.rect.collidepoint(x, y):
             pos = self.calculateCell((x,y))
-            self.matrix[pos[0]][pos[1]] = instance
-            self.rooksList.append(instance)
+            if pos != None and 1<= pos[0] <=5 and 1 <= pos[1] <=9:
+                self.matrix[pos[0]][pos[1]] = instance
+                self.rooksList.append(instance)
+                print(f"Rook added at {pos}")
 
     def calculateCell(self, clickPos): #Va a calcular en que casilla quedo, ocupo usar modulo, hacer las monedas, colocar cosas y logica de cuando colocar
-        rel_x = clickPos[0] - self.rect.x
-        rel_y = clickPos[1] - self.rect.y
-        col = rel_x // self.cellSize[0]
-        row = rel_y // self.cellSize[1]
+        x = clickPos[0] - self.rect.x
+        y = clickPos[1] - self.rect.y
+        col = x // self.cellSize[0]
+        row = y // self.cellSize[1]
         if 0 <= row < self.ROWS and 0 <= col < self.COLUMNS:
             return (row, col)
         else:
@@ -71,4 +73,9 @@ class Matrix:
     def update(self, dt): #Actualiza la logica de la matriz
         self.updateCoins(dt)
 
-
+    def detectCoinClick(self, event):
+        for coin in self.coins:
+            if coin.detectClick(event):
+                self.coins.remove(coin)
+                return coin.value
+        return 0

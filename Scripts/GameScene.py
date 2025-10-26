@@ -18,10 +18,16 @@ class GameScene(Scene):
     def handleEvent(self, event): #Detección de donde se hace click y llama a las fucniones que correspondan
         #En el caso de la matriz, si hay un rook seleccionado, lo añade si cumple las condiciones
         if event.type == pygame.MOUSEBUTTONDOWN:
-            if self.selectedRook:
-                if self.selectedRook.cost < self.coins:
-                    self.coins  = self.coins - self.selectedRook.cost
-                    self.matrix.addRook(event, self.selectedRook)
+            if self.matrix.rect.collidepoint(event.pos):
+                if self.selectedRook:
+                    if self.selectedRook.cost < self.coins:
+                        self.coins  = self.coins - self.selectedRook.cost
+                        self.matrix.addRook(event, self.selectedRook)
+                else:
+                    earned = self.matrix.detectCoinClick(event)
+                    self.coins += earned
+                    if earned > 0:
+                        print(f"Coins: {self.coins}")
 
     def update(self, dt): #Actualiza la logica de la escena
         self.matrix.update(dt)
