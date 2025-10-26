@@ -8,12 +8,19 @@ class GameScene(Scene):
         self.switchScene = switchSceneCallback
         self.res = res
         self.matrix = Matrix(self.res)
+        self.coins = 0
+        self.selectedRook = None
 
     def draw(self, screen): #Dibuja todos los elementos en pantalla
         self.matrix.draw(screen)
 
     def handleEvent(self, event): #Detección de donde se hace click y llama a las fucniones que correspondan
+        #En el caso de la matriz, si hay un rook seleccionado, lo añade si cumple las condiciones
         if event.type == pygame.MOUSEBUTTONDOWN:
-            self.matrix.deteckClick()
+            if self.selectedRook:
+                if self.selectedRook.cost < self.coins:
+                    self.coins  = self.coins - self.selectedRook.cost
+                    self.matrix.addRook(event, self.selectedRook)
+
 
 
