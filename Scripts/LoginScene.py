@@ -3,12 +3,15 @@ from Scene import Scene
 from Buttons import Button
 from TextBoxes import TextBox
 from ImageButtons import ImageButton
+import threading
+from api_client import login_user
 
 
 class LoginScene(Scene):
     """Escena de inicio de sesión: permite ingresar usuario, contraseña y acceder a opciones de autenticación."""
 
-    def __init__(self, font, res, switchSceneCallback):  # Inicializa los elementos de la escena
+    def __init__(self, font, res, switchSceneCallback): 
+        self.login_message = "" # Inicializa los elementos de la escena
         self.switchScene = switchSceneCallback
         self.buttonHeigth = 75
         self.buttonLength = 450
@@ -78,8 +81,26 @@ class LoginScene(Scene):
         self.passwordBox.handleEvent(event)
 
         if self.loginButton.wasClicked(event):
-            print("Username:", self.usernameBox.getText())
-            print("Password:", self.passwordBox.getText())
+            user = self.usernameBox.getText()
+            pwd = self.passwordBox.getText()
+            self.login_message = "Conectando..."
+
+            def _do_login():
+                try:
+                    resp = login_user(user, pwd, timeout=5.0)
+                    if resp.get("ok"):
+                        u = resp["user"]["username"]
+                        self.login_message = f"Bienvenido {u}"
+                        # Si quieres cambiar de escena al loguear, descomenta y ajusta:
+                        # self.switchScene("home")  # o la escena que corresponda tras login
+                    else:
+                        # Mensaje genérico (el server devuelve {"ok":false,"error":"invalid_credentials"} en este caso)
+                        self.login_message = "Usuario o contraseña incorrectos."
+                except Exception as e:
+                    self.login_message = f"Error de red: {e}"
+
+            threading.Thread(target=_do_login, daemon=True).start()
+
 
         if self.googleButton.wasClicked(event):
             pass
@@ -168,3 +189,11 @@ class LoginScene(Scene):
         divider_x = screen_width // 2 - divider_surface.get_width() // 2
         divider_y = self.registerButton.rect.bottom + 35  # un poco de espacio debajo
         screen.blit(divider_surface, (divider_x, divider_y))
+
+        if self.login_message:
+            mfont = pygame.font.Font(None, 28)
+            msurf = mfont.render(self.login_message, True, (255, 255, 255))
+            mx = self.loginButton.rect.x
+            my = self.loginButton.rect.bottom + 12
+            screen.blit(msurf, (mx, my))
+

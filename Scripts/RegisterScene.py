@@ -1,4 +1,5 @@
 import pygame
+import threading
 from Scene import Scene
 from Buttons import Button
 from TextBoxes import TextBox
@@ -9,6 +10,7 @@ import subprocess
 import platform
 import os
 import re
+from api_client import register_user
 
 
 class RegisterScene(Scene):
@@ -19,6 +21,8 @@ class RegisterScene(Scene):
 
     def __init__(self, font, res, switchSceneCallback):
         self.switchScene = switchSceneCallback
+        self.register_message = ""
+
 
         screenW, screenH = res
 
@@ -216,6 +220,21 @@ class RegisterScene(Scene):
         self.panel_height = 810     # alto del panel
         self.panel_y = 200         # posición Y del panel (ajusta este valor)
 
+    def _read_value(self, box):
+        # Intenta métodos típicos de tus widgets
+        for attr in ("getValue", "getText"):
+            if hasattr(box, attr):
+                try:
+                    return getattr(box, attr)()
+                except Exception:
+                    pass
+        # A falta de métodos, usa atributos conocidos
+        if hasattr(box, "value"):
+            return getattr(box, "value")
+        if hasattr(box, "text"):
+            return getattr(box, "text")
+        return ""
+
     # ---------- VALIDACIÓN DE CONTRASEÑAS ----------
     def _validate_passwords(self):
         pw = getattr(self.passwordBox, "text", "")
@@ -251,14 +270,76 @@ class RegisterScene(Scene):
         for button in self.buttonsList:
             if button.wasClicked(event):
                 if button == self.registerButton:
-                    pass
+                    # Re-valida contraseñas (usando tu propia lógica actual):
+                    self._validate_passwords()
+                    if self.passwordError or self.confirmError:
+                        self.register_message = (self.passwordError or self.confirmError)
+                        continue
+
+                    # Arma el payload exacto para tu backend
+                    perfil = {
+                        "nombre":              self._read_value(self.fields[0]),
+                        "apellidos":           self._read_value(self.fields[1]),
+                        "telefono":            self._read_value(self.fields[2]),
+                        "fecha_nacimiento":    self._read_value(self.fields[3]),
+                        "pais":                self._read_value(self.fields[4]),
+                        "hobbie":              self._read_value(self.fields[5]),
+                    }
+                    cuenta = {
+                        "username":            self._read_value(self.fields[6]),
+                        "email":               self._read_value(self.fields[7]),
+                        "password":            getattr(self.passwordBox, "text", ""),
+                        "password_confirm":    getattr(self.confirmBox, "text", "")
+                    }
+                    pago = {
+                        "titular":             self._read_value(self.fields[10]),
+                        "numero_tarjeta":      self._read_value(self.fields[11]),
+                        "expiracion":          self._read_value(self.fields[12]),
+                        # CVV (fields[13]) intencionalmente NO se envía
+                    }
+                    acepto = bool(getattr(self.checkBox, "clicked", False))
+
+                    payload = {
+                        "perfil": perfil,
+                        "cuenta": cuenta,
+                        "pago":   pago,
+                        "acepto_tyc": False if self.checkBox.clicked else True
+                    }
+
+                    self.register_message = "Guardando..."
+
+                    def _do_register():
+                        try:
+                            resp = register_user(payload, timeout=5.0)
+                            if resp.get("ok"):
+                                self.register_message = "Registro exitoso. Ahora inicia sesión."
+                                # Si quieres cambiar de escena automáticamente:
+                                # self.switchScene("login")
+                            else:
+                                # El backend devuelve "field" y "error" cuando hay validación
+                                field = resp.get("field", "general")
+                                err   = resp.get("error", "error")
+                                # También puedes reflejar algunos en tus labels existentes:
+                                if field == "password" and err == "invalid_format":
+                                    self.passwordError = "Solo alfanumérica, máximo 8."
+                                    self.register_message = self.passwordError
+                                elif field == "password" and err == "mismatch":
+                                    self.confirmError = "Debe coincidir con la contraseña."
+                                    self.register_message = self.confirmError
+                                else:
+                                    self.register_message = f"Error en {field}: {err}"
+                        except Exception as e:
+                            self.register_message = f"Error de red: {e}"
+
+                    threading.Thread(target=_do_register, daemon=True).start()
+
                 elif button == self.loginButton:
                     self.switchScene("login")
                 elif button == self.checkBox and self.checkBox.clicked:
                     self.openPdf("TerminosCondicionesTecnolators.pdf")
 
-        if self.termsAndConditions.wasClicked(event):
-            self.openPdf("TerminosCondicionesTecnolators.pdf")
+                if self.termsAndConditions.wasClicked(event):
+                    self.openPdf("TerminosCondicionesTecnolators.pdf")
 
     def update(self, deltaTime):
         mousePos = pygame.mouse.get_pos()
@@ -313,6 +394,12 @@ class RegisterScene(Scene):
         if self.confirmError:
             txt = self.errorFont.render(self.confirmError, True, self.errorColor)
             screen.blit(txt, (self.confirmBox.rect.x, self.confirmBox.rect.bottom + 5))
+
+        if self.register_message:
+            # Usa tu fuente de errores para mantener estilo
+            msg_surf = self.errorFont.render(self.register_message, True, self.errorColor)
+            screen.blit(msg_surf, (self.registerButton.rect.x, self.registerButton.rect.bottom + 12))
+
 
     def openPdf(self, path):
         systemType = platform.system()
