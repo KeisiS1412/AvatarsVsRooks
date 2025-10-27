@@ -5,6 +5,7 @@ from TextBoxes import TextBox
 from ImageButtons import ImageButton
 import threading
 from api_client import login_user
+LOGIN_SUCCESS = pygame.USEREVENT + 2
 
 
 class LoginScene(Scene):
@@ -77,13 +78,18 @@ class LoginScene(Scene):
         self.title_font = pygame.font.Font(None, 65)  # ajusta 70/90 según prefieras
 
     def handleEvent(self, event):
+        if event.type == LOGIN_SUCCESS:
+            # Si tu switchScene acepta datos, podrías pasar el usuario con event.user
+            self.switchScene("game_mode")
+            return
+
         self.usernameBox.handleEvent(event)
         self.passwordBox.handleEvent(event)
 
         if self.loginButton.wasClicked(event):
             user = self.usernameBox.getText()
             pwd = self.passwordBox.getText()
-            self.login_message = "Conectando..."
+            self.login_message = ""
 
             def _do_login():
                 try:
@@ -91,13 +97,13 @@ class LoginScene(Scene):
                     if resp.get("ok"):
                         u = resp["user"]["username"]
                         self.login_message = f"Bienvenido {u}"
-                        # Si quieres cambiar de escena al loguear, descomenta y ajusta:
-                        # self.switchScene("home")  # o la escena que corresponda tras login
+                        # Postea al hilo principal para cambiar de escena
+                        pygame.event.post(pygame.event.Event(LOGIN_SUCCESS, user=resp["user"]))
+                        return
                     else:
-                        # Mensaje genérico (el server devuelve {"ok":false,"error":"invalid_credentials"} en este caso)
                         self.login_message = "Usuario o contraseña incorrectos."
                 except Exception as e:
-                    self.login_message = f"Error de red: {e}"
+                    self.login_message = f"Error de red"
 
             threading.Thread(target=_do_login, daemon=True).start()
 
@@ -194,6 +200,6 @@ class LoginScene(Scene):
             mfont = pygame.font.Font(None, 28)
             msurf = mfont.render(self.login_message, True, (255, 255, 255))
             mx = self.loginButton.rect.x
-            my = self.loginButton.rect.bottom + 12
+            my = self.loginButton.rect.bottom - 100
             screen.blit(msurf, (mx, my))
 

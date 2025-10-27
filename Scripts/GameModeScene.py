@@ -2,37 +2,36 @@ import pygame
 from Scene import Scene
 from Buttons import Button
 
-class ModoJuegoScene(Scene):
+class GameModeScene(Scene):
     def __init__(self, font, res, switchSceneCallback):
         self.switchScene = switchSceneCallback
         self.font = font
         self.res = res
 
         screenW, screenH = res
-        self.bg_color = (218, 41, 28)   # Rojo fondo
+        self.bg_color = (218, 41, 28)  # Rojo fondo
 
         # Botones
         button_w, button_h = 300, 60
+        spacing = 100  # espacio entre botones
         y_center = screenH // 2
-        gap = 100
-
-        x_positions = [
-            screenW // 2 - button_w - gap,
-            screenW // 2 - button_w // 2,
-            screenW // 2 + gap
-        ]
 
         labels = ["Fácil", "Medio", "Difícil"]
         self.buttons = []
 
+        # Ancho total ocupado por todos los botones + espacios
+        total_width = len(labels) * button_w + (len(labels) - 1) * spacing
+        start_x = (screenW - total_width) // 1.4
+
         for i, label in enumerate(labels):
+            x = start_x + i * (button_w + spacing)
             btn = Button(
-                x_positions[i], y_center,
+                x, y_center - button_h // 2,
                 button_w, button_h,
                 label, font,
-                (20, 20, 20),        # fondo negro
-                (255, 255, 255),     # texto blanco
-                (255, 255, 255)      # borde blanco
+                (37, 32, 28),      # fondo oscuro
+                (255, 255, 255),   # texto blanco
+                (255, 255, 255)    # borde blanco
             )
             self.buttons.append(btn)
 
@@ -40,7 +39,7 @@ class ModoJuegoScene(Scene):
         for button in self.buttons:
             if button.wasClicked(event):
                 print(f"Seleccionado modo: {button.text}")
-                # Aquí luego harás self.switchScene("nombreDelModo") o similar
+                # Luego podrías hacer: self.switchScene("nombreDelModo")
 
     def update(self, deltaTime):
         mousePos = pygame.mouse.get_pos()

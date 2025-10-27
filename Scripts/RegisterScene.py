@@ -339,7 +339,7 @@ class RegisterScene(Scene):
                                 else:
                                     self.register_message = f"Error en {field}: {err}"
                         except Exception as e:
-                            self.register_message = f"Error de red: {e}"
+                            self.register_message = f"Error de red:"
 
                     threading.Thread(target=_do_register, daemon=True).start()
 
