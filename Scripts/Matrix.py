@@ -1,13 +1,14 @@
 import pygame
 from Coins import Coin
+import random
 
 class Matrix:
     """Manejo visual y logico de la matriz de juego, maneja instancias de Avatars, Rooks
     monedas, etc. """
 class Matrix:
     def __init__(self, res):
-        self.ROWS = 9
-        self.COLUMNS = 5
+        self.ROWS = 10
+        self.COLUMNS = 6
         self.createMatrix()
         self.rooksList = []
         self.avatarsList = []
@@ -16,14 +17,18 @@ class Matrix:
         self.matrixImage = pygame.transform.rotozoom(self.matrixImage, 0, 0.61)
         self.cellSize = (self.matrixImage.get_width()//7, self.matrixImage.get_height()//11)
         self.imagePos = (self.res[0]//2 - self.matrixImage.get_width()//2, 0)
+        self.coinCells = set()
         self.rect = pygame.Rect(
             self.imagePos[0],
             self.imagePos[1],
             self.matrixImage.get_width(),    
             self.matrixImage.get_height()    
         )
-        coin = Coin()
-        self.coins = [coin]
+        self.coins = []
+        for i in range(5):
+            self.addCoin(25)
+            self.addCoin(50)
+            self.addCoin(100)
 
     def createMatrix(self): #Crea una amtriz con listas anidadas del tamño ya establecido
         self.matrix = [[0 for _ in range(self.COLUMNS)] for _ in range(self.ROWS)]
@@ -39,7 +44,7 @@ class Matrix:
         x, y = event.pos
         if self.rect.collidepoint(x, y):
             pos = self.calculateCell((x,y))
-            if pos != None and 1<= pos[0] <=5 and 1 <= pos[1] <=9:
+            if pos != None and 1<= pos[0] <=5 and 1 <= pos[1] <=9 and self.matrix[pos[0]][pos[1]] == 0:
                 self.matrix[pos[0]][pos[1]] = instance
                 self.rooksList.append(instance)
                 print(f"Rook added at {pos}")
@@ -79,3 +84,17 @@ class Matrix:
                 self.coins.remove(coin)
                 return coin.value
         return 0
+    
+    def addCoin(self, val):
+        while True:
+            x = random.randint(1, self.COLUMNS-1)
+            y = random.randint(1, self.ROWS -1)
+            if (x, y) not in self.coinCells:
+                self.coinCells.add((x, y))
+                break
+        pos = (
+            self.imagePos[0] + x * self.cellSize[0] + random.randint(0,1)*self.cellSize[0]//2,
+            self.imagePos[1] + y * self.cellSize[1] + random.randint(0,1)*self.cellSize[1]//2
+        )
+        newCoin = Coin(val, pos)
+        self.coins.append(newCoin)

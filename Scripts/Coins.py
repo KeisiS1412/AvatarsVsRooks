@@ -1,14 +1,15 @@
 import pygame
 
 class Coin:
-    def __init__(self):
-        self.value = 25
+    SPRITE_WIDTH = 16
+    SPRITE_HEIGHT = 16
+    def __init__(self, val, pos):
+        self.value = val
         self.spritesheet = pygame.image.load("Assets/coinsSpritesheet.png").convert_alpha()
-        self.SPRITE_WIDTH = 16
-        self.SPRITE_HEIGHT = 16
-        self.row = 1
+        row = {25: 1, 50: 2, 100: 4}
+        self.row = row.get(val, 0)
         self.sprites = self.getSprites()
-        self.position = (625,500)
+        self.position = pos
         self.rect = self.sprites[0].get_rect(topleft=self.position)
         self.currentTime = 0
         self.frameTime = 100
