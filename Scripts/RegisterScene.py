@@ -11,6 +11,7 @@ import platform
 import os
 import re
 from api_client import register_user
+REGISTER_SUCCESS = pygame.USEREVENT + 1
 
 
 class RegisterScene(Scene):
@@ -48,6 +49,8 @@ class RegisterScene(Scene):
         # Fuente para mensajes de error
         self.errorFont = pygame.font.Font(None, 24)
         self.errorColor = (218, 41, 28)  # gris (puedes cambiar a DA291C si lo prefieres)
+
+        
 
         # === Lista de países ===
         countryList = [
@@ -243,15 +246,15 @@ class RegisterScene(Scene):
         self.passwordError = ""
         self.confirmError = ""
 
-        if not re.fullmatch(r"[A-Za-z0-9]{0,8}", pw or ""):
-            if len(pw) > 8:
-                self.passwordError = "Máximo 8 caracteres."
+        if re.fullmatch(r"[A-Za-z0-9]{0,8}", pw or ""):
+            if len(pw) < 8:
+                self.passwordError = "Mínimo 8 caracteres."
             elif any(not c.isalnum() for c in pw):
                 self.passwordError = "Solo caracteres alfanuméricos."
 
-        if not re.fullmatch(r"[A-Za-z0-9]{0,8}", cf or ""):
-            if len(cf) > 8:
-                self.confirmError = "Máximo 8 caracteres."
+        if re.fullmatch(r"[A-Za-z0-9]{0,8}", cf or ""):
+            if len(cf) < 8:
+                self.confirmError = "Mínimo 8 caracteres."
             elif any(not c.isalnum() for c in cf):
                 self.confirmError = "Solo caracteres alfanuméricos."
 
@@ -259,6 +262,11 @@ class RegisterScene(Scene):
             self.confirmError = "Debe coincidir con la contraseña."
 
     def handleEvent(self, event):
+        # Manejo de evento de éxito de registro (desde el hilo principal)
+        if event.type == REGISTER_SUCCESS:
+            self.switchScene("login")
+            return
+
         # Entrega los eventos a todos los campos
         for box in self.fields:
             box.handleEvent(event)
@@ -312,9 +320,11 @@ class RegisterScene(Scene):
                         try:
                             resp = register_user(payload, timeout=5.0)
                             if resp.get("ok"):
-                                self.register_message = "Registro exitoso. Ahora inicia sesión."
-                                # Si quieres cambiar de escena automáticamente:
-                                # self.switchScene("login")
+                                # En vez de escribir mensaje o cambiar escena aquí (hilo secundario),
+                                # mandamos un evento al hilo principal:
+                                pygame.event.post(pygame.event.Event(REGISTER_SUCCESS))
+                                return
+
                             else:
                                 # El backend devuelve "field" y "error" cuando hay validación
                                 field = resp.get("field", "general")

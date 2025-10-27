@@ -24,7 +24,7 @@ $login = @{ username_or_email = "fabian"; password = "ABC12345" } | ConvertTo-Js
 Invoke-RestMethod -Method POST "http://localhost:3007/auth/login" -ContentType "application/json" -Body $login  
 
 Archivos importantes:  
-.env contiene las variables de entorno y no debe subirse al repositorio.  
+.env contiene las variables de entorno y no debe subirse al rimepositorio.  
 secret.key es la clave generada localmente y tampoco debe subirse.  
 usuarios.json.enc es la base de datos cifrada, puede compartirse solo si el repositorio es privado y todos usan la misma clave.  
 
