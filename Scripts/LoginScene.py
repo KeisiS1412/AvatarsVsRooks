@@ -116,6 +116,9 @@ class LoginScene(Scene):
 
         if self.registerButton.wasClicked(event):
             self.switchScene("register")
+        
+        if self.recoverPassword.wasClicked(event):
+            self.switchScene("recoverPassword")
 
         # Click en el "botón" de texto
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
