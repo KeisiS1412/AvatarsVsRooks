@@ -14,6 +14,7 @@ from projectiles.Arrow import Arrow
 from Enemies.SquireEnemy import Squire
 from projectiles.Sword import Sword
 from Enemies.LumberjackEnemy import Lumberjack
+from Enemies.CannibalEnemy import Cannibal
 
 class Matrix:
     """Manejo visual y lógico de la matriz de juego, maneja instancias de Avatars, Rooks, monedas y torres."""
@@ -47,7 +48,12 @@ class Matrix:
         self.lumber_spawn_min = 10.0
         self.lumber_spawn_max = 14.0
         self.lumber_spawn_timer = random.uniform(self.lumber_spawn_min, self.lumber_spawn_max)
-        self.max_lumberjacks = 2
+        self.max_lumberjacks = 1
+
+        self.cannibal_spawn_min = 11.0
+        self.cannibal_spawn_max = 16.0
+        self.cannibal_spawn_timer = random.uniform(self.cannibal_spawn_min, self.cannibal_spawn_max)
+        self.max_cannibals = 2
 
         self.matrixImage = pygame.transform.rotate(pygame.image.load("Assets/matrix.png"), -90)
         self.matrixImage = pygame.transform.rotozoom(self.matrixImage, 0, 0.61)
@@ -62,8 +68,7 @@ class Matrix:
             self.matrixImage.get_height()
         )
 
-        # ► NUEVO: almacenamiento de torres colocadas
-        self.towers = {}  # (row, col) -> instancia de Tower
+        self.towers = {} 
 
         self.coins = []
         for i in range(5):
@@ -188,6 +193,7 @@ class Matrix:
         self._update_enemy_projectiles(dt_enemies)
         self._maybe_spawn_squire(dt_enemies)
         self._maybe_spawn_lumberjack(dt_enemies)
+        self._maybe_spawn_cannibal(dt_enemies)
          
         for tower in self.towers.values():
             tower.update(dt)
@@ -338,6 +344,34 @@ class Matrix:
         )
         self.enemies.append(e)
         print(f"[Spawn lumberjack] row={last_row}, col={col}")
+    
+    def _maybe_spawn_cannibal(self, dt):
+        if sum(1 for e in self.enemies if isinstance(e, Cannibal) and getattr(e, "alive", True)) >= self.max_cannibals:
+            return
+
+        self.cannibal_spawn_timer -= dt
+        if self.cannibal_spawn_timer > 0:
+            return
+
+        self.cannibal_spawn_timer = random.uniform(self.cannibal_spawn_min, self.cannibal_spawn_max)
+
+        last_row = self.ROWS - 1
+        valid_cols = [1, 2, 3, 4, 5]
+        col = random.choice(valid_cols)
+
+        e = Cannibal(
+            spritesheet_path="Assets/enemies/canibal.png",   # usa tu ruta real
+            cell_size=self.cellSize,
+            image_pos=self.imagePos,
+            rows=self.ROWS, cols=self.COLUMNS,
+            row=last_row, col=col,
+            frames_rows=3, frames_cols=4,
+            wait_time=14.0, move_time=0.55, move_anim_fps=8, scale_fit=0.92,
+            crop_left=1, crop_right=1, crop_top=1, crop_bottom=1
+        )
+        self.enemies.append(e)
+        print(f"[Spawn cannibal] row={last_row}, col={col}")
+
 
 
 
