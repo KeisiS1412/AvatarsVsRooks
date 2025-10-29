@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import express from 'express';
 import argon2 from 'argon2';
+import crypto from 'crypto';
 import { loadOrCreateKey, encryptJson, decryptJson } from './crypto';
 import { readEncryptedFile, writeEncryptedFile } from './storage';
 import { ensureDb, isAlnumMax8, isEmailBasic, normalize, nowIso, uuid } from './util';
@@ -14,12 +15,12 @@ async function main() {
 
   app.get('/health', (_req, res) => res.json({ ok: true, ts: Date.now() }));
 
-  // REGISTER
   app.post('/auth/register', async (req, res) => {
     try {
       const body = req.body as RegisterReq;
 
-      if (!body?.acepto_tyc) return res.status(400).json({ ok: false, field: 'acepto_tyc', error: 'required' });
+      if (!body?.acepto_tyc)
+        return res.status(400).json({ ok: false, field: 'acepto_tyc', error: 'required' });
       if (!body?.cuenta?.username || !body?.cuenta?.email || !body?.cuenta?.password || !body?.cuenta?.password_confirm)
         return res.status(400).json({ ok: false, field: 'password', error: 'required' });
       if (!isAlnumMax8(body.cuenta.password))
@@ -50,6 +51,7 @@ async function main() {
         createdAt: nowIso(),
         updatedAt: nowIso()
       };
+
       db.usuarios.push(user);
 
       const newEnc = await encryptJson(db, key);
@@ -61,7 +63,6 @@ async function main() {
     }
   });
 
-  // LOGIN
   app.post('/auth/login', async (req, res) => {
     try {
       const { username_or_email, password } = req.body;
@@ -85,6 +86,68 @@ async function main() {
       console.error(err);
       res.status(500).json({ ok: false, error: 'internal_error' });
     }
+  });
+
+  function generateToken(length = 32) {
+    return crypto.randomBytes(length).toString('hex');
+  }
+
+  function hashToken(token: string) {
+    return crypto.createHash('sha256').update(token).digest('hex');
+  }
+
+  app.post('/auth/request-reset', async (req, res) => {
+  const { email } = req.body;
+  if (!email) return res.status(400).json({ ok: false, error: 'email_required' });
+
+  const enc = readEncryptedFile();
+  if (!enc) return res.status(400).json({ ok: false, error: 'no_data' });
+
+  const db: DBShape = await decryptJson(enc, key);
+  const user = db.usuarios.find(u => normalize(u.email) === normalize(email));
+  if (!user) return res.json({ ok: true, message: 'Si el email existe, se envió un código' });
+
+  const token = generateToken();
+  user.resetTokenHash = hashToken(token);
+  user.resetExpires = Date.now() + 15 * 60 * 1000; // 15 minutos
+
+  const newEnc = await encryptJson(db, key);
+  writeEncryptedFile(newEnc);
+
+  console.log(`Token para ${email}: ${token}`); // visible en consola
+
+  // 👇 aquí cambiamos el retorno
+  return res.json({ ok: true, token });
+});
+
+  // Confirmar recuperación con token + nueva contraseña
+  app.post('/auth/confirm-reset', async (req, res) => {
+    const { email, token, newPassword } = req.body;
+    if (!email || !token || !newPassword)
+      return res.status(400).json({ ok: false, error: 'missing_fields' });
+
+    const enc = readEncryptedFile();
+    if (!enc) return res.status(400).json({ ok: false, error: 'no_data' });
+
+    const db: DBShape = await decryptJson(enc, key);
+    const user = db.usuarios.find(u => normalize(u.email) === normalize(email));
+    if (!user || !user.resetTokenHash || !user.resetExpires)
+      return res.status(400).json({ ok: false, error: 'invalid_token' });
+
+    if (Date.now() > user.resetExpires)
+      return res.status(400).json({ ok: false, error: 'token_expired' });
+
+    if (hashToken(token) !== user.resetTokenHash)
+      return res.status(400).json({ ok: false, error: 'invalid_token' });
+
+    user.password_hash = await argon2.hash(newPassword, { type: argon2.argon2id });
+    delete user.resetTokenHash;
+    delete user.resetExpires;
+
+    const newEnc = await encryptJson(db, key);
+    writeEncryptedFile(newEnc);
+
+    return res.json({ ok: true, message: 'contraseña_actualizada' });
   });
 
   const PORT = Number(process.env.PORT || 3007);

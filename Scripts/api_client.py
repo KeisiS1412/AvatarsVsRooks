@@ -13,3 +13,18 @@ def login_user(username_or_email: str, password: str, timeout: float = 5.0) -> d
     body = {"username_or_email": username_or_email, "password": password}
     r = requests.post(url, json=body, timeout=timeout)
     return r.json()
+
+def request_password_reset(email: str) -> str | None:
+    r = requests.post(f"{BASE_URL}/auth/request-reset", json={"email": email})
+    data = r.json()
+    return data.get("token")
+
+def confirm_password_reset(email: str, token: str, new_password: str) -> bool: #Confirma el token y cambia la contraseña
+    r = requests.post(
+        f"{BASE_URL}/auth/confirm-reset",
+        json={"email": email, "token": token, "newPassword": new_password}
+    )
+    data = r.json()
+    return data.get("ok", False)
+
+

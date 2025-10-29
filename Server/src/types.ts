@@ -37,6 +37,8 @@ export type UserRecord = {
   acepto_tyc: boolean;
   createdAt: string;
   updatedAt: string;
+  resetTokenHash?: string;
+  resetExpires?: number;
 };
 
 export type DBShape = { usuarios: UserRecord[] };

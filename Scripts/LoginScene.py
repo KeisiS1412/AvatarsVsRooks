@@ -116,11 +116,12 @@ class LoginScene(Scene):
 
         if self.registerButton.wasClicked(event):
             self.switchScene("register")
+        
 
         # Click en el "botón" de texto
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             if self.forgot_rect and self.forgot_rect.collidepoint(event.pos):
-                print("[ForgotPasswordLink] clicked")  # luego puedes conectarlo a tu escena
+                self.switchScene("recoverPassword")  # luego puedes conectarlo a tu escena
 
     def update(self, deltaTime):
         mousePos = pygame.mouse.get_pos()
