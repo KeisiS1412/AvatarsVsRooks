@@ -23,14 +23,34 @@ class GameScene(Scene):
         self.shop.draw(screen)
 
     def handleEvent(self, event):
+        # 0) Tecla ESC para cancelar selección desde cualquier escena
+        if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+            self.shop.clear_selection()
+            return
+
+        # 0bis) Click derecho en cualquier parte: cancelar selección
+        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 3:
+            self.shop.clear_selection()
+            return
+
+        # 1) Primero deja que el panel consuma el click si fue allí
         consumed, changed = self.shop.handle_event(event)
         if consumed:
             return
 
+        # 2) Clicks sobre la matriz
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             if self.matrix.rect.collidepoint(event.pos):
-                tower_type = self.shop.get_selected_type()
 
+                # ★ PRIORIDAD MONEDAS: trata de recoger primero
+                earned = self.matrix.detectCoinClick(event)
+                if earned > 0:
+                    self.coins += earned
+                    # print(f"Coins: {self.coins}")
+                    return  # ya usamos el click para moneda
+
+                # Si no había moneda, entonces veamos si hay torre seleccionada
+                tower_type = self.shop.get_selected_type()
                 if tower_type:
                     cell = self.matrix.calculateCell(event.pos)
                     if cell is not None:
@@ -42,17 +62,14 @@ class GameScene(Scene):
                             )
                             if tower:
                                 self.matrix.add_tower_instance(row, col, tower)
-                    return
+                    return  # click procesado
 
+                # Sin torre seleccionada: tu flujo original de rook / otras acciones
                 if self.selectedRook:
                     if self.selectedRook.cost < self.coins:
                         self.coins = self.coins - self.selectedRook.cost
                         self.matrix.addRook(event, self.selectedRook)
-                else:
-                    earned = self.matrix.detectCoinClick(event)
-                    self.coins += earned
-                    if earned > 0:
-                        print(f"Coins: {self.coins}")
+
 
     def update(self, dt):
         self.matrix.update(dt)
