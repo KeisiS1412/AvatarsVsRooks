@@ -1,6 +1,8 @@
 import pygame
 from Coins import Coin
 import random
+from projectiles.FireBall import Fireball
+from towers.FireTower import FireTower
 
 class Matrix:
     """Manejo visual y lógico de la matriz de juego, maneja instancias de Avatars, Rooks, monedas y torres."""
@@ -11,6 +13,7 @@ class Matrix:
         self.rooksList = []
         self.avatarsList = []
         self.res = res
+        self.projectiles = []
 
         self.matrixImage = pygame.transform.rotate(pygame.image.load("Assets/matrix.png"), -90)
         self.matrixImage = pygame.transform.rotozoom(self.matrixImage, 0, 0.61)
@@ -43,6 +46,20 @@ class Matrix:
         # ► NUEVO: dibuja las torres encima del tablero
         for tower in self.towers.values():
             tower.draw(screen)
+
+        for p in self.projectiles:
+            p.draw(screen)
+
+    def _spawn_fireball_below(self, tower):
+        row_below = tower.row + 1
+        if row_below >= self.ROWS:
+            return  # no hay espacio
+        tl = self.cell_to_pixel(row_below, tower.col)
+        fb = Fireball(self.cellSize)
+        x_center = tl[0] + self.cellSize[0] // 2
+        y_top = tl[1]
+        fb.set_top_center(x_center, y_top)
+        self.projectiles.append(fb)
 
     # ► NUEVO: helper para obtener el topleft en píxeles de una celda
     def cell_to_pixel(self, row, col):
@@ -91,9 +108,28 @@ class Matrix:
 
     def update(self, dt):  # Actualiza la lógica de la matriz
         self.updateCoins(dt)
-        # ► NUEVO: actualiza animaciones de torres
+         
         for tower in self.towers.values():
             tower.update(dt)
+        
+        if hasattr(self, "towers"):
+            for tower in self.towers.values():
+                tower.update(dt)
+
+                # disparo solo para torres de fuego
+                if isinstance(tower, FireTower):
+                    if tower.tick_shoot(dt):
+                        self._spawn_fireball_below(tower)
+
+        # actualizar proyectiles y limpiar los que salen
+        if self.projectiles:
+            bottom_y = self.imagePos[1] + self.cellSize[1] * self.ROWS
+            alive = []
+            for p in self.projectiles:
+                p.update(dt)
+                if p.rect.top < bottom_y:
+                    alive.append(p)   # sigue en juego
+                # si ya cruzó el fondo, desapare
 
     def detectCoinClick(self, event):
         for coin in self.coins:
