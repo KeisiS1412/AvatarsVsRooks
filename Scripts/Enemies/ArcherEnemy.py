@@ -9,7 +9,7 @@ class Archer(pygame.sprite.Sprite):
       - Disparo: usa frame (0,2) por un pulso corto al llamar trigger_shot()
     """
     def __init__(self, spritesheet_path, cell_size, image_pos, rows, cols,
-                 row, col, frames_rows=3, frames_cols=4,
+                 row, col, frames_rows=3, frames_cols=4, on_shoot=None,
                  wait_time=12.0, move_time=0.35, move_anim_fps=10, scale_fit=0.9):
         super().__init__()
         self.cell_w, self.cell_h = cell_size
@@ -18,6 +18,11 @@ class Archer(pygame.sprite.Sprite):
         self.cols = cols
         self.row = row
         self.col = col
+
+        self.on_shoot = on_shoot  # callback que recibirá (cx, cy)
+        # Programación de disparo post-movimiento:
+        self.shot_wait_after_move = 1.0   # 1 s después de cambiar de celda
+        self.shot_wait_timer = -1.0  
 
         # Timers/estado
         self.state = "idle"      # "idle" | "moving" | "shot"
@@ -87,6 +92,20 @@ class Archer(pygame.sprite.Sprite):
 
         if self.state == "idle":
             self.image = self.frames[self.idx(0, 0)]
+
+            # Si hay un disparo programado (post-move), contamos
+            if self.shot_wait_timer > 0:
+                self.shot_wait_timer -= dt
+                if self.shot_wait_timer <= 0:
+                    # Dispara: animación (0,2) y callback para crear la flecha
+                    self.trigger_shot()
+                    if self.on_shoot is not None:
+                        cx, cy = self.rect.centerx, self.rect.top - 4  # un poquito por encima
+                        self.on_shoot(cx, cy)
+                    self.shot_wait_timer = -1.0  # listo, limpiar
+                return
+
+            # Contador normal de espera para el siguiente movimiento
             self.wait_timer += dt
             if self.wait_timer >= self.wait_time:
                 self.wait_timer -= self.wait_time
@@ -113,11 +132,15 @@ class Archer(pygame.sprite.Sprite):
                 self.move_timer = 0.0
                 self.move_anim_time = 0.0
                 self.move_anim_index = 0
-
+                # Programar el disparo 1 s después de HABER llegado a la celda
+                self.shot_wait_timer = self.shot_wait_after_move
+                self.wait_timer = 0.0 
         elif self.state == "shot":
+            # Mantén el frame de disparo un pulso corto y vuelve a idle
             self.shot_timer -= dt
             if self.shot_timer <= 0:
                 self.state = "idle"
+                self.image = self.frames[self.idx(0, 0)]
 
     # --- helpers ---
     def _start_move_up(self):

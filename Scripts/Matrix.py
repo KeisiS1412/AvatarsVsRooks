@@ -10,7 +10,7 @@ from towers.SandTower import SandTower
 from projectiles.Rock import Rock
 from towers.RockTower import RockTower
 from Enemies.ArcherEnemy import Archer
-
+from projectiles.Arrow import Arrow
 class Matrix:
     """Manejo visual y lógico de la matriz de juego, maneja instancias de Avatars, Rooks, monedas y torres."""
     def __init__(self, res):
@@ -23,7 +23,13 @@ class Matrix:
         self.projectiles = []
 
         self.enemies = []
+        self.enemy_projectiles = []
 
+        # Spawn controlado (uno cada ~20 s)
+        self.flech_spawn_min = 18.0
+        self.flech_spawn_max = 22.0
+        self.flech_spawn_timer = random.uniform(self.flech_spawn_min, self.flech_spawn_max)
+        self.max_flecheros = 1
         self.flech_spawn_min = 18.0
         self.flech_spawn_max = 22.0
         self.flech_spawn_timer = random.uniform(self.flech_spawn_min, self.flech_spawn_max)
@@ -67,6 +73,8 @@ class Matrix:
             p.draw(screen)
         for e in self.enemies:
             screen.blit(e.image, e.rect.topleft)
+        for a in self.enemy_projectiles:
+            a.draw(screen)
 
     def _spawn_fireball_below(self, tower):
         x_center = self.imagePos[0] + tower.col * self.cellSize[0] + self.cellSize[0] // 2
@@ -165,6 +173,7 @@ class Matrix:
         dt_enemies = dt / 1000.0 if dt > 5 else dt  # heurística segura
         self._maybe_spawn_flechero(dt_enemies)
         self._update_enemies(dt_enemies)
+        self._update_enemy_projectiles(dt_enemies)
          
         for tower in self.towers.values():
             tower.update(dt)
@@ -255,19 +264,39 @@ class Matrix:
             rows=self.ROWS, cols=self.COLUMNS,
             row=last_row, col=col,
             frames_rows=3, frames_cols=4,
-            wait_time=12.0,          # 12 s quieto por celda
-            move_time=0.50,          # un poco más lento para que se note el paso
-            move_anim_fps=6,         # menos fps = frames visibles más tiempo
-            scale_fit=0.9
+            wait_time=12.0, move_time=0.50, move_anim_fps=6, scale_fit=0.9,
+            on_shoot=self._spawn_enemy_arrow_from_xy  # << callback
         )
         self.enemies.append(e)
+        print(f"[Spawn flechero] fila={last_row}, col={col}")
+
+    def _spawn_enemy_arrow_from_xy(self, cx, cy):
+        # Escalamos la flecha a un ancho cómodo (p.ej., 30–35 px) proporcional a tu celda
+        arrow_w = max(18, int(self.cellSize[0] * 0.35))
+        arrow_h = int(arrow_w * 2.2)  # alargada
+        arr = Arrow("Assets/enemies/flecha.png", speed_px_s=380, scale_px=(arrow_w, arrow_h))
+        arr.set_center(cx, cy)
+        self.enemy_projectiles.append(arr)
 
     def _update_enemies(self, dt):
         top_limit_y = self.imagePos[1]
         alive = []
         for e in self.enemies:
             e.update(dt)
+            # Si salió por arriba o marcó not alive, lo quitamos
             if getattr(e, "alive", True) and e.rect.centery >= top_limit_y - 8:
                 alive.append(e)
         self.enemies = alive
 
+    def _update_enemy_projectiles(self, dt):
+        alive = []
+        for a in self.enemy_projectiles:
+            a.update(dt)
+            # Desaparece si llegó a fila 0 (o pasó el borde superior)
+            if a.rect.bottom >= self.imagePos[1]:
+                # ¿está por encima del centro de la fila 0?
+                # Más simple: si top < borde superior, eliminar
+                if a.rect.top <= self.imagePos[1]:
+                    continue
+                alive.append(a)
+        self.enemy_projectiles = alive
