@@ -1,5 +1,5 @@
 from towers.Tower import Tower
-
+from towers.BaseTower import BaseTower
 class FireTower(Tower):
     """Torre de fuego animada desde columnas 0, 1 y 3 de la fila 0, con recorte lateral izquierdo."""
 
@@ -8,7 +8,7 @@ class FireTower(Tower):
             spritesheet_path="Assets/towers/fire.png",
             frames_cols=4,          # total de columnas del spritesheet
             frames_rows=2,          # total de filas del spritesheet
-            fps=6,
+            fps=2,
             cell_size=cell_size,
             cell_topleft=cell_topleft,
             row=row,
@@ -24,6 +24,8 @@ class FireTower(Tower):
             use_rows=(0,),          # usa SOLO la fila 0
             use_cols=(0, 1,),     # usa solo las columnas 0, 1 y 3
         )
+
+        BaseTower.__init__(self, hp=10)
 
         # Ajuste visual fino
         self.offset_fix_x = -5     # mueve ligeramente a la izquierda

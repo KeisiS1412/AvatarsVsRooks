@@ -1,4 +1,5 @@
 from towers.Tower import Tower
+from BaseTower import BaseTower
 
 class WaterTower(Tower):
     """Torre de fuego animada desde columnas 0, 1 y 3 de la fila 0, con recorte lateral izquierdo."""
@@ -24,6 +25,8 @@ class WaterTower(Tower):
             use_rows=(0,),          # usa SOLO la fila 0
             use_cols=(0, 1, 2),     # usa solo las columnas 0, 1 y 3
         )
+
+        BaseTower.__init__(self, hp=12)
 
         # Ajuste visual fino
         self.offset_fix_x = -5     # mueve ligeramente a la izquierda

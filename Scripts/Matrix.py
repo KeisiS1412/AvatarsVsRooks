@@ -92,6 +92,10 @@ class Matrix:
             screen.blit(e.image, e.rect.topleft)
         for a in self.enemy_projectiles:
             a.draw(screen)
+        for tower in self.towers.values():
+            tower.draw(screen)
+            if hasattr(tower, "draw_hp_bar"):
+                tower.draw_hp_bar(screen)
 
     def _spawn_fireball_below(self, tower):
         x_center = self.imagePos[0] + tower.col * self.cellSize[0] + self.cellSize[0] // 2
@@ -227,6 +231,18 @@ class Matrix:
                 alive.append(p)
         self.projectiles = alive
 
+        dead_cells = []
+        for pos, tower in list(self.towers.items()):
+            if hasattr(tower, "alive") and not tower.alive:
+                dead_cells.append(pos)
+                continue
+            if hasattr(tower, "update"):
+                tower.update(dt)
+            # tus disparos (tick_shoot) ya están abajo; sólo no dispares si murió
+        for pos in dead_cells:
+            del self.towers[pos]
+            self.matrix[pos[0]][pos[1]] = 0
+
     def detectCoinClick(self, event):
         for coin in self.coins:
             if coin.detectClick(event):
@@ -261,7 +277,15 @@ class Matrix:
 
     def add_tower_instance(self, row, col, tower):
         self.towers[(row, col)] = tower
-        self.matrix[row][col] = tower  # opcional, marca ocupación en la lógica
+        self.matrix[row][col] = tower
+
+        tower.row = row
+        tower.col = col
+        tower.cell_size = self.cellSize
+        tower.image_pos = self.imagePos
+        
+        if hasattr(tower, "bind_grid"):
+            tower.bind_grid(row, col, self.cellSize, self.imagePos)
     
     def _maybe_spawn_flechero(self, dt):
         # Respeta el máximo simultáneo
@@ -413,3 +437,13 @@ class Matrix:
                     continue
                 alive.append(a)
         self.enemy_projectiles = alive
+    
+    def damage_tower(self, row, col, dmg):
+        t = self.towers.get((row, col))
+        if not t:
+            return
+        if hasattr(t, "take_damage"):
+            t.take_damage(dmg)
+        if hasattr(t, "alive") and not t.alive:
+            del self.towers[(row, col)]
+            self.matrix[row][col] = 0
