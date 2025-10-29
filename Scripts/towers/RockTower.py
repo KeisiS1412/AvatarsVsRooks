@@ -13,7 +13,7 @@ class RockTower(Tower):
             cell_topleft=cell_topleft,
             row=row,
             col=col,
-            scale_fit=0.95,
+            scale_fit=0.85,
             # Recorte manual para eliminar borde izquierdo de la torre vecina
             crop_left=15,           # recorte extra a la izquierda
             crop_right=0,
@@ -22,9 +22,9 @@ class RockTower(Tower):
             anchor_bottom_center=True,
             pixel_art=False,
             use_rows=(0,),          # usa SOLO la fila 0
-            use_cols=(1, 2),     # usa solo las columnas 0, 1 y 3
+            use_cols=(1,),     # usa solo las columnas 0, 1 y 3
         )
 
         # Ajuste visual fino
         self.offset_fix_x = -5     # mueve ligeramente a la izquierda
-        self.offset_fix_y = 0      # no mover verticalmente
+        self.offset_fix_y = 5      # no mover verticalmente

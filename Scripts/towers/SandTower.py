@@ -13,7 +13,7 @@ class SandTower(Tower):
             cell_topleft=cell_topleft,
             row=row,
             col=col,
-            scale_fit=0.95,
+            scale_fit=0.85,
             # Recorte manual para eliminar borde izquierdo de la torre vecina
             crop_left=15,           # recorte extra a la izquierda
             crop_right=0,

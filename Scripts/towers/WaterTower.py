@@ -8,12 +8,12 @@ class WaterTower(Tower):
             spritesheet_path="Assets/towers/water2.png",
             frames_cols=4,          # total de columnas del spritesheet
             frames_rows=2,          # total de filas del spritesheet
-            fps=2,
+            fps=5,
             cell_size=cell_size,
             cell_topleft=cell_topleft,
             row=row,
             col=col,
-            scale_fit=0.95,
+            scale_fit=0.85,
             # Recorte manual para eliminar borde izquierdo de la torre vecina
             crop_left=15,           # recorte extra a la izquierda
             crop_right=0,

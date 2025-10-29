@@ -18,11 +18,11 @@ class FireTower(Tower):
             crop_left=-2,           # recorte extra a la izquierda
             crop_right=0,
             crop_top=0,
-            crop_bottom=25,
+            crop_bottom=20,
             anchor_bottom_center=True,
             pixel_art=False,
             use_rows=(0,),          # usa SOLO la fila 0
-            use_cols=(0, 1, 3),     # usa solo las columnas 0, 1 y 3
+            use_cols=(0, 1,),     # usa solo las columnas 0, 1 y 3
         )
 
         # Ajuste visual fino
