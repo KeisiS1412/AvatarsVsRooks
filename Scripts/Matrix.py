@@ -11,6 +11,7 @@ from projectiles.Rock import Rock
 from towers.RockTower import RockTower
 from Enemies.ArcherEnemy import Archer
 from projectiles.Arrow import Arrow
+from Enemies.SquireEnemy import Squire
 class Matrix:
     """Manejo visual y lógico de la matriz de juego, maneja instancias de Avatars, Rooks, monedas y torres."""
     def __init__(self, res):
@@ -33,9 +34,13 @@ class Matrix:
         self.flech_spawn_min = 18.0
         self.flech_spawn_max = 22.0
         self.flech_spawn_timer = random.uniform(self.flech_spawn_min, self.flech_spawn_max)
-
-        # Límite de flecheros simultáneos
         self.max_flecheros = 1
+
+        self.squire_spawn_min = 8.0
+        self.squire_spawn_max = 12.0
+        self.squire_spawn_timer = random.uniform(self.squire_spawn_min, self.squire_spawn_max)
+        self.max_squires = 1 
+
 
         self.matrixImage = pygame.transform.rotate(pygame.image.load("Assets/matrix.png"), -90)
         self.matrixImage = pygame.transform.rotozoom(self.matrixImage, 0, 0.61)
@@ -174,6 +179,7 @@ class Matrix:
         self._maybe_spawn_flechero(dt_enemies)
         self._update_enemies(dt_enemies)
         self._update_enemy_projectiles(dt_enemies)
+        self._maybe_spawn_squire(dt_enemies)
          
         for tower in self.towers.values():
             tower.update(dt)
@@ -245,7 +251,7 @@ class Matrix:
     
     def _maybe_spawn_flechero(self, dt):
         # Respeta el máximo simultáneo
-        if sum(1 for e in self.enemies if getattr(e, "alive", True)) >= self.max_flecheros:
+        if sum(1 for e in self.enemies if isinstance(e, Archer) and getattr(e, "alive", True)) >= self.max_flecheros:
             return
 
         self.flech_spawn_timer -= dt
@@ -269,6 +275,34 @@ class Matrix:
         )
         self.enemies.append(e)
         print(f"[Spawn flechero] fila={last_row}, col={col}")
+    def _maybe_spawn_squire(self, dt):
+        # Respeta el máximo simultáneo
+        if sum(1 for e in self.enemies if isinstance(e, Squire) and getattr(e, "alive", True)) >= self.max_squires:
+            return
+
+        self.squire_spawn_timer -= dt
+        if self.squire_spawn_timer > 0:
+            return
+
+        self.squire_spawn_timer = random.uniform(self.squire_spawn_min, self.squire_spawn_max)
+
+        last_row = self.ROWS - 1
+        # columnas válidas (tú usas 1..5 para flechero; repetimos para consistencia visual)
+        valid_cols = [1, 2, 3, 4, 5]
+        col = random.choice(valid_cols)
+
+        e = Squire(
+            spritesheet_path="Assets/enemies/escudero.png",   # ruta a tu PNG 3x4
+            cell_size=self.cellSize,
+            image_pos=self.imagePos,
+            rows=self.ROWS, cols=self.COLUMNS,
+            row=last_row, col=col,
+            frames_rows=3, frames_cols=4,
+            wait_time=12.0, move_time=0.50, move_anim_fps=8, scale_fit=0.9
+        )
+        self.enemies.append(e)
+        print(f"[Spawn squire] row={last_row}, col={col}")
+
 
     def _spawn_enemy_arrow_from_xy(self, cx, cy):
         # Escalamos la flecha a un ancho cómodo (p.ej., 30–35 px) proporcional a tu celda
