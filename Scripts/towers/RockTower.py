@@ -13,7 +13,7 @@ class RockTower(Tower):
             cell_topleft=cell_topleft,
             row=row,
             col=col,
-            scale_fit=0.85,
+            scale_fit=0.92,
             # Recorte manual para eliminar borde izquierdo de la torre vecina
             crop_left=15,           # recorte extra a la izquierda
             crop_right=0,
@@ -28,3 +28,13 @@ class RockTower(Tower):
         # Ajuste visual fino
         self.offset_fix_x = -5     # mueve ligeramente a la izquierda
         self.offset_fix_y = 5      # no mover verticalmente
+
+        self.shoot_cooldown_ms = 2500
+        self._shoot_accum = 0
+
+    def tick_shoot(self, dt_ms: int) -> bool:
+        self._shoot_accum += dt_ms
+        if self._shoot_accum >= self.shoot_cooldown_ms:
+            self._shoot_accum = 0
+            return True
+        return False

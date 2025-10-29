@@ -25,7 +25,7 @@ class ShopPanel:
         # Cargar íconos de torres
         fire_icon = AssetsUtils.load_first_frame("Assets/towers/fire.png", 4, 2, (72, 72))
         # (Para cuando existan)
-        water_icon = AssetsUtils.load_first_frame("Assets/towers/water.png", 4, 2, (72, 72))
+        water_icon = AssetsUtils.load_first_frame("Assets/towers/water2.png", 4, 2, (72, 72))
         sand_icon = AssetsUtils.load_first_frame("Assets/towers/sand.png", 4, 2, (72, 72))
         rock_icon = AssetsUtils.load_first_frame("Assets/towers/rock.png", 4, 2, (72, 72))
 

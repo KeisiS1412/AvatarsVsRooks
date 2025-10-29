@@ -28,3 +28,13 @@ class SandTower(Tower):
         # Ajuste visual fino
         self.offset_fix_x = -2     # mueve ligeramente a la izquierda
         self.offset_fix_y = 0      # no mover verticalmente
+
+        self.shoot_cooldown_ms = 1700
+        self._shoot_accum = 0
+
+    def tick_shoot(self, dt_ms: int) -> bool:
+        self._shoot_accum += dt_ms
+        if self._shoot_accum >= self.shoot_cooldown_ms:
+            self._shoot_accum = 0
+            return True
+        return False

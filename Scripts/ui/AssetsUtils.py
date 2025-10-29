@@ -9,7 +9,7 @@ class AssetsUtils:
         sheet = pygame.image.load(path).convert_alpha()
         sw, sh = sheet.get_width(), sheet.get_height()
         fw, fh = sw // frames_cols, sh // frames_rows
-        fh -= 30
+        fh -= 70
         rect = pygame.Rect(0, 0, fw, fh)
 
         frame = pygame.Surface((fw, fh), pygame.SRCALPHA)

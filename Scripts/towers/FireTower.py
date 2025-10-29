@@ -29,7 +29,7 @@ class FireTower(Tower):
         self.offset_fix_x = -5     # mueve ligeramente a la izquierda
         self.offset_fix_y = 0      # no mover verticalmente
 
-        self.shoot_cooldown_ms = 900
+        self.shoot_cooldown_ms = 2000
         self._shoot_accum = 0
 
     def tick_shoot(self, dt_ms: int) -> bool:

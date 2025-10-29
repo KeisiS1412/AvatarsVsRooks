@@ -5,6 +5,11 @@ from projectiles.FireBall import Fireball
 from towers.FireTower import FireTower
 from projectiles.WaterDrop import WaterDrop
 from towers.WaterTower import WaterTower
+from projectiles.SandShard import SandShard
+from towers.SandTower import SandTower
+from projectiles.Rock import Rock
+from towers.RockTower import RockTower
+
 class Matrix:
     """Manejo visual y lógico de la matriz de juego, maneja instancias de Avatars, Rooks, monedas y torres."""
     def __init__(self, res):
@@ -76,6 +81,29 @@ class Matrix:
         wd.set_top_center(x_center, y_bottom - wd.rect.height)
         self.projectiles.append(wd)
 
+    def _spawn_sandshard_below(self, tower):
+        row_below = tower.row + 1
+        if row_below >= self.ROWS:
+            return
+        x_center = self.imagePos[0] + tower.col * self.cellSize[0] + self.cellSize[0] // 2
+        y_bottom = self.imagePos[1] + (tower.row + 1) * self.cellSize[1]
+
+        ss = SandShard(self.cellSize)
+        ss.set_top_center(x_center, y_bottom - ss.rect.height)  # nace pegado al borde inferior de la celda de la torre
+        self.projectiles.append(ss)
+    
+    def _spawn_rock_below(self, tower):
+        row_below = tower.row + 1
+        if row_below >= self.ROWS:
+            return
+        x_center = self.imagePos[0] + tower.col * self.cellSize[0] + self.cellSize[0] // 2
+        y_bottom = self.imagePos[1] + (tower.row + 1) * self.cellSize[1]
+
+        ss = Rock(self.cellSize)
+        ss.set_top_center(x_center, y_bottom - ss.rect.height)  # nace pegado al borde inferior de la celda de la torre
+        self.projectiles.append(ss)
+
+
     def cell_to_pixel(self, row, col):
         px = self.imagePos[0] + col * self.cellSize[0]
         py = self.imagePos[1] + row * self.cellSize[1]
@@ -138,7 +166,13 @@ class Matrix:
                 if isinstance(tower, WaterTower) and hasattr(tower, "tick_shoot"):
                     if tower.tick_shoot(dt):
                         self._spawn_waterdrop_below(tower)
-
+                
+                if isinstance(tower, SandTower) and hasattr(tower, "tick_shoot"):
+                    if tower.tick_shoot(dt):
+                        self._spawn_sandshard_below(tower)
+                if isinstance(tower, RockTower) and hasattr(tower, "tick_shoot"):
+                    if tower.tick_shoot(dt):
+                        self._spawn_rock_below(tower)
 
         # actualizar proyectiles y limpiar los que salen
         bottom_limit = self.imagePos[1] + self.ROWS * self.cellSize[1]
@@ -170,7 +204,7 @@ class Matrix:
         newCoin = Coin(val, pos)
         self.coins.append(newCoin)
 
-    # ► NUEVO: reglas para colocar torres
+    
     def can_place_tower(self, row, col):
         # No permitir en última fila ni sobre otra entidad/torre
         if row == self.ROWS - 1:
@@ -181,7 +215,6 @@ class Matrix:
             return False
         return True
 
-    # ► NUEVO: registrar torre creada por la factory
     def add_tower_instance(self, row, col, tower):
         self.towers[(row, col)] = tower
         self.matrix[row][col] = tower  # opcional, marca ocupación en la lógica
