@@ -1,5 +1,5 @@
 from towers.Tower import Tower
-from BaseTower import BaseTower
+from towers.BaseTower import BaseTower
 
 class WaterTower(Tower):
     """Torre de fuego animada desde columnas 0, 1 y 3 de la fila 0, con recorte lateral izquierdo."""

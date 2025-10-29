@@ -1,6 +1,6 @@
 # Enemies/SquireEnemy.py
 import pygame
-
+from Enemies.BaseAvatar import BaseAvatar
 class Squire(pygame.sprite.Sprite):
     """
     Squire (escudero)
@@ -22,7 +22,7 @@ class Squire(pygame.sprite.Sprite):
         self.grid_cols = cols
         self.row = row
         self.col = col
-
+        BaseAvatar.__init__(self, hp=10)
         self.frames_rows = frames_rows
         self.frames_cols = frames_cols
         self.wait_time = wait_time

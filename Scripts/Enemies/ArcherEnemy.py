@@ -1,5 +1,6 @@
 # enemies/Flechero.py
 import pygame
+from Enemies.BaseAvatar import BaseAvatar
 
 class Archer(pygame.sprite.Sprite):
     """
@@ -18,6 +19,7 @@ class Archer(pygame.sprite.Sprite):
         self.cols = cols
         self.row = row
         self.col = col
+        BaseAvatar.__init__(self, hp=5)
 
         self.on_shoot = on_shoot  # callback que recibirá (cx, cy)
         # Programación de disparo post-movimiento:

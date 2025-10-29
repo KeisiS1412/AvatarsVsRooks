@@ -1,5 +1,6 @@
 # Enemies/LumberjackEnemy.py
 import pygame
+from Enemies.BaseAvatar import BaseAvatar
 
 class Cannibal(pygame.sprite.Sprite):
     """
@@ -21,6 +22,7 @@ class Cannibal(pygame.sprite.Sprite):
         self.grid_cols = cols
         self.row = row
         self.col = col
+        BaseAvatar.__init__(self, hp=25)
 
         self.frames_rows = frames_rows
         self.frames_cols = frames_cols
