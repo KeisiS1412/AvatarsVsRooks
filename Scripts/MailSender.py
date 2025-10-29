@@ -49,4 +49,4 @@ Si no solicitó esta recuperación, ignore este mensaje.
         except Exception as e:
             return False
 
-        return code  # Retorna el código generado
+        return code

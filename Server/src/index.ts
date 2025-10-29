@@ -96,30 +96,29 @@ async function main() {
     return crypto.createHash('sha256').update(token).digest('hex');
   }
 
-  // Solicitar código de recuperación
   app.post('/auth/request-reset', async (req, res) => {
-    const { email } = req.body;
-    if (!email) return res.status(400).json({ ok: false, error: 'email_required' });
+  const { email } = req.body;
+  if (!email) return res.status(400).json({ ok: false, error: 'email_required' });
 
-    const enc = readEncryptedFile();
-    if (!enc) return res.status(400).json({ ok: false, error: 'no_data' });
+  const enc = readEncryptedFile();
+  if (!enc) return res.status(400).json({ ok: false, error: 'no_data' });
 
-    const db: DBShape = await decryptJson(enc, key);
-    const user = db.usuarios.find(u => normalize(u.email) === normalize(email));
-    if (!user) return res.json({ ok: true, message: 'Si el email existe, se envió un código' });
+  const db: DBShape = await decryptJson(enc, key);
+  const user = db.usuarios.find(u => normalize(u.email) === normalize(email));
+  if (!user) return res.json({ ok: true, message: 'Si el email existe, se envió un código' });
 
-    const token = generateToken();
-    user.resetTokenHash = hashToken(token);
-    user.resetExpires = Date.now() + 15 * 60 * 1000; // 15 minutos
+  const token = generateToken();
+  user.resetTokenHash = hashToken(token);
+  user.resetExpires = Date.now() + 15 * 60 * 1000; // 15 minutos
 
-    const newEnc = await encryptJson(db, key);
-    writeEncryptedFile(newEnc);
+  const newEnc = await encryptJson(db, key);
+  writeEncryptedFile(newEnc);
 
-    // Aquí puedes usar tu MailSender de Python o nodemailer en Node para enviar token por correo
-    console.log(`Token para ${email}: ${token}`); // solo para desarrollo
+  console.log(`Token para ${email}: ${token}`); // visible en consola
 
-    return res.json({ ok: true, message: 'Si el email existe, se envió un código' });
-  });
+  // 👇 aquí cambiamos el retorno
+  return res.json({ ok: true, token });
+});
 
   // Confirmar recuperación con token + nueva contraseña
   app.post('/auth/confirm-reset', async (req, res) => {
