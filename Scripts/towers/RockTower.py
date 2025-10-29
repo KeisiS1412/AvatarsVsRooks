@@ -1,0 +1,30 @@
+from towers.Tower import Tower
+
+class RockTower(Tower):
+    """Torre de fuego animada desde columnas 0, 1 y 3 de la fila 0, con recorte lateral izquierdo."""
+
+    def __init__(self, cell_size, cell_topleft, row, col):
+        super().__init__(
+            spritesheet_path="Assets/towers/rock.png",
+            frames_cols=4,          # total de columnas del spritesheet
+            frames_rows=2,          # total de filas del spritesheet
+            fps=6,
+            cell_size=cell_size,
+            cell_topleft=cell_topleft,
+            row=row,
+            col=col,
+            scale_fit=0.95,
+            # Recorte manual para eliminar borde izquierdo de la torre vecina
+            crop_left=15,           # recorte extra a la izquierda
+            crop_right=0,
+            crop_top=0,
+            crop_bottom=0,
+            anchor_bottom_center=True,
+            pixel_art=False,
+            use_rows=(0,),          # usa SOLO la fila 0
+            use_cols=(1, 2),     # usa solo las columnas 0, 1 y 3
+        )
+
+        # Ajuste visual fino
+        self.offset_fix_x = -5     # mueve ligeramente a la izquierda
+        self.offset_fix_y = 0      # no mover verticalmente
