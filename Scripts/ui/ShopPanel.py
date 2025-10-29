@@ -56,17 +56,32 @@ class ShopPanel:
           consumed=True si el click fue dentro del panel
           changed=True si cambió la torre seleccionada
         """
-        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+        if event.type == pygame.MOUSEBUTTONDOWN and event.button in (1, 3):
+            # Click derecho: cancelar selección si fue dentro del panel
+            if event.button == 3 and self.rect.collidepoint(event.pos):
+                prev = self._selected_type
+                self._selected_type = None
+                self._sync_selection()
+                return True, (prev is not None)
+
             if self.rect.collidepoint(event.pos):
                 for button in self.buttons:
                     if button.handle_event(event):
-                        if self._selected_type != button.tower_type:
+                        # Toggle: si ya estaba seleccionada, deselecciona
+                        if self._selected_type == button.tower_type:
+                            self._selected_type = None
+                        else:
                             self._selected_type = button.tower_type
-                            self._sync_selection()
-                            return True, True
-                        return True, False
+                        self._sync_selection()
+                        return True, True
                 return True, False
         return False, False
+
+    def clear_selection(self):
+        """Limpia cualquier torre seleccionada."""
+        if self._selected_type is not None:
+            self._selected_type = None
+            self._sync_selection()
 
     def get_selected_type(self) -> str:
         """Devuelve el tipo de torre actualmente seleccionado."""
