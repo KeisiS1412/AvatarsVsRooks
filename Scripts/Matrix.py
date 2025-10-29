@@ -9,6 +9,7 @@ from projectiles.SandShard import SandShard
 from towers.SandTower import SandTower
 from projectiles.Rock import Rock
 from towers.RockTower import RockTower
+from Enemies.ArcherEnemy import Archer
 
 class Matrix:
     """Manejo visual y lógico de la matriz de juego, maneja instancias de Avatars, Rooks, monedas y torres."""
@@ -20,6 +21,15 @@ class Matrix:
         self.avatarsList = []
         self.res = res
         self.projectiles = []
+
+        self.enemies = []
+
+        self.flech_spawn_min = 18.0
+        self.flech_spawn_max = 22.0
+        self.flech_spawn_timer = random.uniform(self.flech_spawn_min, self.flech_spawn_max)
+
+        # Límite de flecheros simultáneos
+        self.max_flecheros = 1
 
         self.matrixImage = pygame.transform.rotate(pygame.image.load("Assets/matrix.png"), -90)
         self.matrixImage = pygame.transform.rotozoom(self.matrixImage, 0, 0.61)
@@ -49,12 +59,14 @@ class Matrix:
     def draw(self, screen):  # Dibuja primero la matriz, luego torres; las monedas se dibujan aparte
         screen.blit(self.matrixImage, self.imagePos)
 
-        # ► NUEVO: dibuja las torres encima del tablero
+        
         for tower in self.towers.values():
             tower.draw(screen)
 
         for p in self.projectiles:
             p.draw(screen)
+        for e in self.enemies:
+            screen.blit(e.image, e.rect.topleft)
 
     def _spawn_fireball_below(self, tower):
         x_center = self.imagePos[0] + tower.col * self.cellSize[0] + self.cellSize[0] // 2
@@ -150,6 +162,9 @@ class Matrix:
 
     def update(self, dt):  # Actualiza la lógica de la matriz
         self.updateCoins(dt)
+        dt_enemies = dt / 1000.0 if dt > 5 else dt  # heurística segura
+        self._maybe_spawn_flechero(dt_enemies)
+        self._update_enemies(dt_enemies)
          
         for tower in self.towers.values():
             tower.update(dt)
@@ -218,3 +233,41 @@ class Matrix:
     def add_tower_instance(self, row, col, tower):
         self.towers[(row, col)] = tower
         self.matrix[row][col] = tower  # opcional, marca ocupación en la lógica
+    
+    def _maybe_spawn_flechero(self, dt):
+        # Respeta el máximo simultáneo
+        if sum(1 for e in self.enemies if getattr(e, "alive", True)) >= self.max_flecheros:
+            return
+
+        self.flech_spawn_timer -= dt
+        if self.flech_spawn_timer > 0:
+            return
+
+        self.flech_spawn_timer = random.uniform(self.flech_spawn_min, self.flech_spawn_max)
+
+        last_row = self.ROWS - 1
+        valid_cols = [1, 2, 3, 4, 5]  # solo esas tres columnas
+        col = random.choice(valid_cols)
+        e = Archer(
+            spritesheet_path="Assets/enemies/flechero.png",
+            cell_size=self.cellSize,
+            image_pos=self.imagePos,
+            rows=self.ROWS, cols=self.COLUMNS,
+            row=last_row, col=col,
+            frames_rows=3, frames_cols=4,
+            wait_time=12.0,          # 12 s quieto por celda
+            move_time=0.50,          # un poco más lento para que se note el paso
+            move_anim_fps=6,         # menos fps = frames visibles más tiempo
+            scale_fit=0.9
+        )
+        self.enemies.append(e)
+
+    def _update_enemies(self, dt):
+        top_limit_y = self.imagePos[1]
+        alive = []
+        for e in self.enemies:
+            e.update(dt)
+            if getattr(e, "alive", True) and e.rect.centery >= top_limit_y - 8:
+                alive.append(e)
+        self.enemies = alive
+
