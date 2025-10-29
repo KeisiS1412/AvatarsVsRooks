@@ -12,6 +12,8 @@ from towers.RockTower import RockTower
 from Enemies.ArcherEnemy import Archer
 from projectiles.Arrow import Arrow
 from Enemies.SquireEnemy import Squire
+from projectiles.Sword import Sword
+
 class Matrix:
     """Manejo visual y lógico de la matriz de juego, maneja instancias de Avatars, Rooks, monedas y torres."""
     def __init__(self, res):
@@ -292,13 +294,14 @@ class Matrix:
         col = random.choice(valid_cols)
 
         e = Squire(
-            spritesheet_path="Assets/enemies/escudero.png",   # ruta a tu PNG 3x4
+            spritesheet_path="Assets/enemies/escudero.png",
             cell_size=self.cellSize,
             image_pos=self.imagePos,
             rows=self.ROWS, cols=self.COLUMNS,
             row=last_row, col=col,
             frames_rows=3, frames_cols=4,
-            wait_time=12.0, move_time=0.50, move_anim_fps=8, scale_fit=0.9
+            wait_time=12.0, move_time=0.50, move_anim_fps=8, scale_fit=0.9,
+            on_attack=self._spawn_enemy_sword_from_xy
         )
         self.enemies.append(e)
         print(f"[Spawn squire] row={last_row}, col={col}")
@@ -311,16 +314,24 @@ class Matrix:
         arr = Arrow("Assets/enemies/flecha.png", speed_px_s=380, scale_px=(arrow_w, arrow_h))
         arr.set_center(cx, cy)
         self.enemy_projectiles.append(arr)
-
+        
+    def _spawn_enemy_sword_from_xy(self, cx, cy):
+        # Tamaño relativo cómodo a tu celda (similar a la flecha)
+        sw = max(20, int(self.cellSize[0] * 0.40))
+        sh = int(sw * 1.8)
+        sword = Sword("Assets/enemies/sword.png", speed_px_s=320, scale_px=(sw, sh))
+        sword.set_center(cx, cy)
+        self.enemy_projectiles.append(sword)
+        
     def _update_enemies(self, dt):
-        top_limit_y = self.imagePos[1]
-        alive = []
-        for e in self.enemies:
-            e.update(dt)
-            # Si salió por arriba o marcó not alive, lo quitamos
-            if getattr(e, "alive", True) and e.rect.centery >= top_limit_y - 8:
-                alive.append(e)
-        self.enemies = alive
+            top_limit_y = self.imagePos[1]
+            alive = []
+            for e in self.enemies:
+                e.update(dt)
+                # Si salió por arriba o marcó not alive, lo quitamos
+                if getattr(e, "alive", True) and e.rect.centery >= top_limit_y - 8:
+                    alive.append(e)
+            self.enemies = alive
 
     def _update_enemy_projectiles(self, dt):
         alive = []
