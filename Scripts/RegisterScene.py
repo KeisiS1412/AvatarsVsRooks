@@ -346,10 +346,10 @@ class RegisterScene(Scene):
                 elif button == self.loginButton:
                     self.switchScene("login")
                 elif button == self.checkBox and self.checkBox.clicked:
-                    self.openPdf("TerminosCondicionesTecnolators.pdf")
+                    self.openPdf("Assets\TerminosCondicionesTecnolators.pdf")
 
                 if self.termsAndConditions.wasClicked(event):
-                    self.openPdf("TerminosCondicionesTecnolators.pdf")
+                    self.openPdf("Assets\TerminosCondicionesTecnolators.pdf")
 
     def update(self, deltaTime):
         mousePos = pygame.mouse.get_pos()
