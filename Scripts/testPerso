@@ -1,0 +1,35 @@
+import pygame
+from PersonalizationScene import PersonalizationScene
+
+pygame.init()
+BASE_W, BASE_H = 1920, 1080               # resolución “de diseño”
+screen = pygame.display.set_mode((0,0), pygame.FULLSCREEN)  # tu ventana real (puede ser más pequeña)
+clock = pygame.time.Clock()
+font = pygame.font.Font("Assets/Avenir.ttf", 32)
+
+def dummy_switch(name, shared=None):
+    print("➡ cambio de escena:", name)
+
+# La escena seguirá trabajando a la resolución base; le pasamos la ventana
+scene = PersonalizationScene(font, (BASE_W, BASE_H), dummy_switch)
+# (no hace falta surface intermedia ni función de remapeo aquí)
+
+running = True
+while running:
+    dt = clock.tick(60)
+    win_size = screen.get_size()
+
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
+            continue
+        # No remapees: la escena ya convierte eventos usando pygame.display.get_surface().get_size()
+        scene.handleEvent(event)
+
+    scene.update(dt)
+
+    # Dibuja directamente en la ventana; la escena escalará/centrará automáticamente
+    scene.draw(screen)
+    pygame.display.flip()
+
+pygame.quit()

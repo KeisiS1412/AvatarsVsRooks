@@ -41,7 +41,7 @@ class TextBox:
             textToRender = textToRender[1:]
 
         visibleSurface = self.font.render(textToRender, True, textColor)
-        screen.blit(visibleSurface, (adjRect.x + padding, adjRect.y + padding))
+        screen.blit(visibleSurface, (adjRect.x + 20, adjRect.y + padding + 5 + self.content_offset_y))
 
         if self.isActive:
             self.cursorTimer += deltaTime
@@ -49,8 +49,8 @@ class TextBox:
                 self.cursorVisible = not self.cursorVisible
                 self.cursorTimer = 0
             if self.cursorVisible:
-                cursorX = adjRect.x + padding + visibleSurface.get_width()
-                cursorY = adjRect.y + padding
+                cursorX = adjRect.x + 20 + visibleSurface.get_width()
+                cursorY = adjRect.y + padding + 5 + self.content_offset_y
                 cursorHeight = visibleSurface.get_height()
                 pygame.draw.line(screen, (180, 180, 180), (cursorX, cursorY), (cursorX, cursorY + cursorHeight), 2)
 
