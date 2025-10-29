@@ -13,6 +13,7 @@ from Enemies.ArcherEnemy import Archer
 from projectiles.Arrow import Arrow
 from Enemies.SquireEnemy import Squire
 from projectiles.Sword import Sword
+from Enemies.LumberjackEnemy import Lumberjack
 
 class Matrix:
     """Manejo visual y lógico de la matriz de juego, maneja instancias de Avatars, Rooks, monedas y torres."""
@@ -43,6 +44,10 @@ class Matrix:
         self.squire_spawn_timer = random.uniform(self.squire_spawn_min, self.squire_spawn_max)
         self.max_squires = 1 
 
+        self.lumber_spawn_min = 10.0
+        self.lumber_spawn_max = 14.0
+        self.lumber_spawn_timer = random.uniform(self.lumber_spawn_min, self.lumber_spawn_max)
+        self.max_lumberjacks = 2
 
         self.matrixImage = pygame.transform.rotate(pygame.image.load("Assets/matrix.png"), -90)
         self.matrixImage = pygame.transform.rotozoom(self.matrixImage, 0, 0.61)
@@ -182,6 +187,7 @@ class Matrix:
         self._update_enemies(dt_enemies)
         self._update_enemy_projectiles(dt_enemies)
         self._maybe_spawn_squire(dt_enemies)
+        self._maybe_spawn_lumberjack(dt_enemies)
          
         for tower in self.towers.values():
             tower.update(dt)
@@ -305,6 +311,34 @@ class Matrix:
         )
         self.enemies.append(e)
         print(f"[Spawn squire] row={last_row}, col={col}")
+    
+    def _maybe_spawn_lumberjack(self, dt):
+        # limitar por tipo
+        if sum(1 for e in self.enemies if isinstance(e, Lumberjack) and getattr(e, "alive", True)) >= self.max_lumberjacks:
+            return
+
+        self.lumber_spawn_timer -= dt
+        if self.lumber_spawn_timer > 0:
+            return
+
+        self.lumber_spawn_timer = random.uniform(self.lumber_spawn_min, self.lumber_spawn_max)
+
+        last_row = self.ROWS - 1
+        valid_cols = [1, 2, 3, 4, 5]  # consistente con tus otros spawns
+        col = random.choice(valid_cols)
+
+        e = Lumberjack(
+            spritesheet_path="Assets/enemies/leñador.png",  # pon tu ruta real
+            cell_size=self.cellSize,
+            image_pos=self.imagePos,
+            rows=self.ROWS, cols=self.COLUMNS,
+            row=last_row, col=col,
+            frames_rows=3, frames_cols=4,
+            wait_time=12.0, move_time=0.50, move_anim_fps=8, scale_fit=0.9
+        )
+        self.enemies.append(e)
+        print(f"[Spawn lumberjack] row={last_row}, col={col}")
+
 
 
     def _spawn_enemy_arrow_from_xy(self, cx, cy):
