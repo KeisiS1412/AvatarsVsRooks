@@ -3,7 +3,8 @@ from Coins import Coin
 import random
 from projectiles.FireBall import Fireball
 from towers.FireTower import FireTower
-
+from projectiles.WaterDrop import WaterDrop
+from towers.WaterTower import WaterTower
 class Matrix:
     """Manejo visual y lógico de la matriz de juego, maneja instancias de Avatars, Rooks, monedas y torres."""
     def __init__(self, res):
@@ -51,17 +52,30 @@ class Matrix:
             p.draw(screen)
 
     def _spawn_fireball_below(self, tower):
+        x_center = self.imagePos[0] + tower.col * self.cellSize[0] + self.cellSize[0] // 2
+
+    
+        y_bottom_tower_cell = self.imagePos[1] + (tower.row + 1) * self.cellSize[1]
+
+        fb = Fireball(self.cellSize)
+
+   
+        fb.set_top_center(x_center, y_bottom_tower_cell - fb.rect.height)
+
+        self.projectiles.append(fb)
+    
+    def _spawn_waterdrop_below(self, tower):
         row_below = tower.row + 1
         if row_below >= self.ROWS:
-            return  # no hay espacio
-        tl = self.cell_to_pixel(row_below, tower.col)
-        fb = Fireball(self.cellSize)
-        x_center = tl[0] + self.cellSize[0] // 2
-        y_top = tl[1]
-        fb.set_top_center(x_center, y_top)
-        self.projectiles.append(fb)
+            return
+        x_center = self.imagePos[0] + tower.col * self.cellSize[0] + self.cellSize[0] // 2
+        
+        y_bottom = self.imagePos[1] + (tower.row + 1) * self.cellSize[1]
 
-    # ► NUEVO: helper para obtener el topleft en píxeles de una celda
+        wd = WaterDrop(self.cellSize)
+        wd.set_top_center(x_center, y_bottom - wd.rect.height)
+        self.projectiles.append(wd)
+
     def cell_to_pixel(self, row, col):
         px = self.imagePos[0] + col * self.cellSize[0]
         py = self.imagePos[1] + row * self.cellSize[1]
@@ -121,15 +135,19 @@ class Matrix:
                     if tower.tick_shoot(dt):
                         self._spawn_fireball_below(tower)
 
+                if isinstance(tower, WaterTower) and hasattr(tower, "tick_shoot"):
+                    if tower.tick_shoot(dt):
+                        self._spawn_waterdrop_below(tower)
+
+
         # actualizar proyectiles y limpiar los que salen
-        if self.projectiles:
-            bottom_y = self.imagePos[1] + self.cellSize[1] * self.ROWS
-            alive = []
-            for p in self.projectiles:
-                p.update(dt)
-                if p.rect.top < bottom_y:
-                    alive.append(p)   # sigue en juego
-                # si ya cruzó el fondo, desapare
+        bottom_limit = self.imagePos[1] + self.ROWS * self.cellSize[1]
+        alive = []
+        for p in self.projectiles:
+            p.update(dt)
+            if p.rect.top < bottom_limit:
+                alive.append(p)
+        self.projectiles = alive
 
     def detectCoinClick(self, event):
         for coin in self.coins:
