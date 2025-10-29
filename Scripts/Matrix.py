@@ -3,9 +3,7 @@ from Coins import Coin
 import random
 
 class Matrix:
-    """Manejo visual y logico de la matriz de juego, maneja instancias de Avatars, Rooks
-    monedas, etc. """
-class Matrix:
+    """Manejo visual y lógico de la matriz de juego, maneja instancias de Avatars, Rooks, monedas y torres."""
     def __init__(self, res):
         self.ROWS = 10
         self.COLUMNS = 6
@@ -13,43 +11,59 @@ class Matrix:
         self.rooksList = []
         self.avatarsList = []
         self.res = res
+
         self.matrixImage = pygame.transform.rotate(pygame.image.load("Assets/matrix.png"), -90)
         self.matrixImage = pygame.transform.rotozoom(self.matrixImage, 0, 0.61)
-        self.cellSize = (self.matrixImage.get_width()//7, self.matrixImage.get_height()//11)
-        self.imagePos = (self.res[0]//2 - self.matrixImage.get_width()//2, 0)
+        self.cellSize = (self.matrixImage.get_width() // 7, self.matrixImage.get_height() // 11)
+        self.imagePos = (self.res[0] // 2 - self.matrixImage.get_width() // 2, 0)
+
         self.coinCells = set()
         self.rect = pygame.Rect(
             self.imagePos[0],
             self.imagePos[1],
-            self.matrixImage.get_width(),    
-            self.matrixImage.get_height()    
+            self.matrixImage.get_width(),
+            self.matrixImage.get_height()
         )
+
+        # ► NUEVO: almacenamiento de torres colocadas
+        self.towers = {}  # (row, col) -> instancia de Tower
+
         self.coins = []
         for i in range(5):
             self.addCoin(25)
             self.addCoin(50)
             self.addCoin(100)
 
-    def createMatrix(self): #Crea una amtriz con listas anidadas del tamño ya establecido
+    def createMatrix(self):  # Crea una matriz con listas anidadas del tamaño ya establecido
         self.matrix = [[0 for _ in range(self.COLUMNS)] for _ in range(self.ROWS)]
 
-    def draw(self, screen): #Dibja primero la matriz, luego los avatars, monedas y rooks.
+    def draw(self, screen):  # Dibuja primero la matriz, luego torres; las monedas se dibujan aparte
         screen.blit(self.matrixImage, self.imagePos)
 
-    def addAvatar(self, instance, pos): #Añade un avatar en la posicion dada
+        # ► NUEVO: dibuja las torres encima del tablero
+        for tower in self.towers.values():
+            tower.draw(screen)
+
+    # ► NUEVO: helper para obtener el topleft en píxeles de una celda
+    def cell_to_pixel(self, row, col):
+        px = self.imagePos[0] + col * self.cellSize[0]
+        py = self.imagePos[1] + row * self.cellSize[1]
+        return (px, py)
+
+    def addAvatar(self, instance, pos):  # Añade un avatar en la posición dada
         self.matrix[pos[0]][pos[1]] = instance
         self.avatarsList.append(instance)
     
-    def addRook(self, event, instance): #Si se clickea una casilla dentro de la matriz, añade el rook en esa posicion
+    def addRook(self, event, instance):  # Si se clickea una casilla dentro de la matriz, añade el rook en esa posición
         x, y = event.pos
         if self.rect.collidepoint(x, y):
-            pos = self.calculateCell((x,y))
-            if pos != None and 1<= pos[0] <=5 and 1 <= pos[1] <=9 and self.matrix[pos[0]][pos[1]] == 0:
+            pos = self.calculateCell((x, y))
+            if pos is not None and 1 <= pos[0] <= 5 and 1 <= pos[1] <= 9 and self.matrix[pos[0]][pos[1]] == 0:
                 self.matrix[pos[0]][pos[1]] = instance
                 self.rooksList.append(instance)
                 print(f"Rook added at {pos}")
 
-    def calculateCell(self, clickPos): #Va a calcular en que casilla quedo, ocupo usar modulo, hacer las monedas, colocar cosas y logica de cuando colocar
+    def calculateCell(self, clickPos):  # Calcula en qué casilla cayó el clic
         x = clickPos[0] - self.rect.x
         y = clickPos[1] - self.rect.y
         col = x // self.cellSize[0]
@@ -59,11 +73,11 @@ class Matrix:
         else:
             return None
         
-    def updateAvatars(self): #Actualiza todos los avatars en la matriz, faltan las clases para completar esta parte
+    def updateAvatars(self):  # Actualiza todos los avatars en la matriz
         for avatar in self.avatarsList:
             avatar.update()
     
-    def updateRooks(self): #Actualiza todos los rooks en la matriz, faltan las clases para completar esta parte
+    def updateRooks(self):  # Actualiza todos los rooks en la matriz
         for rook in self.rooksList:
             rook.update()
 
@@ -75,8 +89,11 @@ class Matrix:
         for coin in self.coins:
             coin.draw(screen, coin.position)
 
-    def update(self, dt): #Actualiza la logica de la matriz
+    def update(self, dt):  # Actualiza la lógica de la matriz
         self.updateCoins(dt)
+        # ► NUEVO: actualiza animaciones de torres
+        for tower in self.towers.values():
+            tower.update(dt)
 
     def detectCoinClick(self, event):
         for coin in self.coins:
@@ -87,14 +104,30 @@ class Matrix:
     
     def addCoin(self, val):
         while True:
-            x = random.randint(1, self.COLUMNS-1)
-            y = random.randint(1, self.ROWS -1)
+            x = random.randint(1, self.COLUMNS - 1)
+            y = random.randint(1, self.ROWS - 1)
             if (x, y) not in self.coinCells:
                 self.coinCells.add((x, y))
                 break
         pos = (
-            self.imagePos[0] + x * self.cellSize[0] + random.randint(0,1)*self.cellSize[0]//2,
-            self.imagePos[1] + y * self.cellSize[1] + random.randint(0,1)*self.cellSize[1]//2
+            self.imagePos[0] + x * self.cellSize[0] + random.randint(0, 1) * self.cellSize[0] // 2,
+            self.imagePos[1] + y * self.cellSize[1] + random.randint(0, 1) * self.cellSize[1] // 2
         )
         newCoin = Coin(val, pos)
         self.coins.append(newCoin)
+
+    # ► NUEVO: reglas para colocar torres
+    def can_place_tower(self, row, col):
+        # No permitir en última fila ni sobre otra entidad/torre
+        if row == self.ROWS - 1:
+            return False
+        if (row, col) in self.towers:
+            return False
+        if self.matrix[row][col] != 0:
+            return False
+        return True
+
+    # ► NUEVO: registrar torre creada por la factory
+    def add_tower_instance(self, row, col, tower):
+        self.towers[(row, col)] = tower
+        self.matrix[row][col] = tower  # opcional, marca ocupación en la lógica
