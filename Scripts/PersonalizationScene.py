@@ -66,17 +66,47 @@ def is_dark(c):
 def MakeTitleFont():
     return pygame.font.Font("Assets/Avenir.ttf", TITLE_FONT_SIZE)
 
+
+# Obtiene los datos del usuario actual desde la sesión
 def GetCurrentUser():
+    try:
+        from session import get_current_user
+        raw = get_current_user()
+    except Exception:
+        raw = None
+
+    if not isinstance(raw, dict):
+        raw = {}
+
+    perfil = raw.get("perfil") if isinstance(raw.get("perfil"), dict) else {}
+
+    # Tomar apellido1/2 si ya vienen separados
+    ap1 = perfil.get("apellido1", "")
+    ap2 = perfil.get("apellido2", "")
+
+    # dividir 'apellidos'
+    if not ap1 and not ap2:
+        ap_combo = perfil.get("apellidos")
+        if isinstance(ap_combo, str):
+            parts = ap_combo.strip().split()
+            ap1 = parts[0] if parts else ""
+            ap2 = " ".join(parts[1:]) if len(parts) > 1 else ""
+
     return {
-        "foto": None,
-        "nombre": "Name",
-        "apellido1": "Last Name",
-        "apellido2": "Last Name",
-        "usuario": "Username",
-        "email": "Email",
-        "telefono": "0000 0000",
-        "hobbie": "Deportes",
+        "usuario":   raw.get("username") or raw.get("usuario") or "",
+        "nombre":    perfil.get("nombre", "Nombre"),
+        "apellido1": ap1,
+        "apellido2": ap2,
+        "email":     raw.get("email") or perfil.get("email", ""),
+        "telefono":  perfil.get("telefono", ""),
+        "hobbie":    perfil.get("hobbie", ""),
+        "cumple":    perfil.get("cumple") or perfil.get("fecha_nacimiento") or perfil.get("birthday") or "",
+        "foto":      perfil.get("foto") or raw.get("avatar"),
+        "_raw":      raw
     }
+
+
+
 
 """Escena de personalización del usuario, incluyendo música y tema visual"""
 class PersonalizationScene(Scene):
@@ -177,6 +207,72 @@ class PersonalizationScene(Scene):
         self.theme_fg = (0, 0, 0)
 
         self.ApplyTheme()
+
+    # Refresca los datos del usuario desde la sesión
+    def refresh_user(self):
+        self.user = GetCurrentUser()
+
+        def put(widget, key):
+            if widget is None: return
+            val = self.user.get(key, "")
+            try:
+                widget.set_content(val)
+            except Exception:
+                try:
+                    widget.text = val
+                except Exception:
+                    pass
+
+        # Ajusta estos nombres a tus variables reales
+        put(getattr(self, "f_nombre", None),   "nombre")
+        put(getattr(self, "f_ap1", None),      "apellido1")
+        put(getattr(self, "f_ap2", None),      "apellido2")
+        put(getattr(self, "f_usuario", None),  "usuario")
+        put(getattr(self, "f_email", None),    "email")
+        put(getattr(self, "f_tel", None),      "telefono")
+
+        # Dropdown de hobbie 
+        try:
+            dd = getattr(self, "hobbyDrop", None)
+            if dd:
+                raw_val = (self.user.get("hobbie") or "").strip()
+
+                import unicodedata
+                def norm(s):
+                    s = s.strip().lower()
+                    s = ''.join(c for c in unicodedata.normalize('NFD', s) if unicodedata.category(c) != 'Mn')
+                    return s
+
+                v = norm(raw_val)
+
+                alias = {
+                    "deportes": "Sports",
+                    "sport": "Sports",
+                    "sports": "Sports",
+                    "musica": "Music",
+                    "music": "Music",
+                    "películas": "Movies",
+                    "movies": "Movies",
+                }
+                target = alias.get(v, raw_val)  
+
+                if hasattr(dd, "set_value"):
+                    dd.set_value(target)
+                else:
+                    options = getattr(dd, "options", None)
+                    if isinstance(options, (list, tuple)) and options:
+                        def opt_value(item):
+                            return item[1] if isinstance(item, (list, tuple)) and len(item) >= 2 else item
+                        vals = [opt_value(o) for o in options]
+                        idx = vals.index(target) if target in vals else 0
+                        dd.index = idx
+        except Exception:
+            pass
+
+
+        self.avatar_path = self.user.get("foto", None)
+
+
 
     
     def EnsureSpotify(self): # Setup Spotify client
@@ -422,6 +518,7 @@ class PersonalizationScene(Scene):
 
         PaintDropdowns(self.hobbyDrop)
         PaintDropdowns(self.themeDrop)
+        self.refresh_user()
 
         # TextBox de Música
         self.musicBox.inactiveColor = self.theme_ui
@@ -445,6 +542,8 @@ class PersonalizationScene(Scene):
 
         for b in [self.searchBtn, self.muteBtn, self.changePhotoBtn, self.returnBtn]:
             PaintButton(b)
+
+    
 
 
 

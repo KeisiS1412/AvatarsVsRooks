@@ -14,6 +14,19 @@ def login_user(username_or_email: str, password: str, timeout: float = 5.0) -> d
     r = requests.post(url, json=body, timeout=timeout)
     return r.json()
 
+def get_user(username: str, timeout: float = 3.0) -> dict: # Obtiene los datos del usuario por su nombre de usuario
+    try:
+        from api_client import BASE_URL  
+    except Exception:
+        BASE_URL = "http://localhost:3007"
+
+    try:
+        r = requests.get(f"{BASE_URL}/users/{username}", timeout=timeout)
+        data = r.json()
+        return data if isinstance(data, dict) else {}
+    except Exception:
+        return {}
+    
 def request_password_reset(email: str) -> str | None:
     r = requests.post(f"{BASE_URL}/auth/request-reset", json={"email": email})
     data = r.json()

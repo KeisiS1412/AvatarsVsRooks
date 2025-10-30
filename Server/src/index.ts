@@ -7,6 +7,10 @@ import { readEncryptedFile, writeEncryptedFile } from './storage';
 import { ensureDb, isAlnumMax8, isEmailBasic, normalize, nowIso, uuid } from './util';
 import { DBShape, RegisterReq, UserRecord } from './types';
 
+// === NUEVO ===
+import { getPublicUserByUsername } from './storage'; // para el endpoint de perfil público
+// === FIN NUEVO ===
+
 async function main() {
   const app = express();
   app.use(express.json({ limit: '1mb' }));
@@ -81,6 +85,7 @@ async function main() {
       const valid = await argon2.verify(user.password_hash, password);
       if (!valid) return res.status(401).json({ ok: false, error: 'invalid_credentials' });
 
+      // Se mantiene la respuesta mínima; el cliente podrá ampliar con /users/:username
       return res.status(200).json({ ok: true, user: { id: user.id, username: user.username } });
     } catch (err) {
       console.error(err);
@@ -149,6 +154,26 @@ async function main() {
 
     return res.json({ ok: true, message: 'contraseña_actualizada' });
   });
+
+  // === NUEVO ===
+  // Endpoint de solo lectura para obtener el "perfil público" del usuario
+  app.get('/users/:username', async (req, res) => {
+    try {
+      const username = (req.params.username || '').trim();
+      if (!username) {
+        return res.status(400).json({ ok: false, error: 'missing_username' });
+      }
+      const pub = await getPublicUserByUsername(username, key);
+      if (!pub) {
+        return res.status(404).json({ ok: false, error: 'not_found' });
+      }
+      return res.json({ ok: true, user: pub });
+    } catch (e) {
+      console.error('GET /users/:username error:', e);
+      return res.status(500).json({ ok: false, error: 'internal_error' });
+    }
+  });
+  // === FIN NUEVO ===
 
   const PORT = Number(process.env.PORT || 3007);
   app.listen(PORT, () => console.log(`Servidor corriendo en http://localhost:${PORT}`));
