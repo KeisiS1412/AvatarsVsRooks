@@ -37,6 +37,18 @@ def play_track(nombre, artista):
     name = track["name"]
     artist_names = ", ".join(a["name"] for a in track["artists"])
 
+    # NUEVO: obtener popularidad
+    popularidad = track["popularity"]
+
+    #  NUEVO: obtener tempo usando audio_features
+    audio_features = sp.audio_features([track["id"]])[0]
+    tempo = audio_features["tempo"] if audio_features else None
+
+    if tempo:
+        print(f" Tempo: {tempo:.2f} BPM\n")
+    else:
+        print(" Tempo no disponible.\n")
+
     device_id = get_active_device()
     if not device_id:
         return
