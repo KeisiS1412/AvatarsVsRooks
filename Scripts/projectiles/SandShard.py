@@ -19,3 +19,4 @@ class SandShard(Projectile):
             vx=0.0,
             vy=315.0               # hacia abajo
         )
+        self.contact_damage = 3

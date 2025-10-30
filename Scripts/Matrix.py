@@ -90,6 +90,8 @@ class Matrix:
             p.draw(screen)
         for e in self.enemies:
             screen.blit(e.image, e.rect.topleft)
+            if hasattr(e, "draw_hp_bar"):
+                e.draw_hp_bar(screen)
         for a in self.enemy_projectiles:
             a.draw(screen)
         for tower in self.towers.values():
@@ -226,10 +228,33 @@ class Matrix:
         # actualizar proyectiles y limpiar los que salen
         bottom_limit = self.imagePos[1] + self.ROWS * self.cellSize[1]
         alive = []
+
         for p in self.projectiles:
             p.update(dt)
-            if p.rect.top < bottom_limit:
+
+            hit = False
+            # Colisión especial: SandShard hace -3 HP a Archer/Squire/Lumberjack/Cannibal y se destruye
+            if isinstance(p, SandShard):
+                for e in self.enemies:
+                    if not getattr(e, "alive", True):
+                        continue
+                    if p.rect.colliderect(e.rect) and isinstance(e, (Archer, Squire, Lumberjack, Cannibal)):
+                        if hasattr(e, "take_damage") and callable(e.take_damage):
+                            e.take_damage(3)
+                        else:
+                            # Fallback por si algún enemigo legacy no tiene take_damage
+                            e.hp = max(0, getattr(e, "hp", 0) - 3)
+                            if e.hp == 0:
+                                e.alive = False
+                                if callable(getattr(e, "on_death", None)):
+                                    e.on_death(e)
+                        hit = True
+                        break
+
+            # Mantener si no chocó y no salió del mapa
+            if (not hit) and (p.rect.top < bottom_limit):
                 alive.append(p)
+
         self.projectiles = alive
 
         dead_cells = []
