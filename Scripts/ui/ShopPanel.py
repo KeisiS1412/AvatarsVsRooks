@@ -7,7 +7,7 @@ class ShopPanel:
     def __init__(self, screen_size: tuple[int, int]):
         self.screen_w, self.screen_h = screen_size
         self.width = 220
-        self.rect = pygame.Rect(self.screen_w - self.width, 0, self.width, self.screen_h)
+        self.rect = pygame.Rect(0, 0, self.width, self.screen_h)
 
         # Colores del panel
         self.bg_color = (25, 25, 28)
