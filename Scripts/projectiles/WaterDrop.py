@@ -19,3 +19,7 @@ class WaterDrop(Projectile):
             vx=0.0,
             vy=315.0          # hacia abajo
         )
+        self.owner = "tower"
+        self.sfx_key = "water"
+        self.damage = getattr(self, "damage", 13)
+

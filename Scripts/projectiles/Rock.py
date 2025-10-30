@@ -19,3 +19,7 @@ class Rock(Projectile):
             vx=0.0,
             vy=300.0               # hacia abajo
         )
+        self.owner = "tower"
+        self.sfx_key = "rock"
+        self.damage = getattr(self, "damage", 4)
+

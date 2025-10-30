@@ -16,6 +16,19 @@ from projectiles.Sword import Sword
 from Enemies.LumberjackEnemy import Lumberjack
 from Enemies.CannibalEnemy import Cannibal
 from towers.TowerFactory import TowerFactory
+from sfx import sfx
+
+def _tower_kind_for_sfx(tower) -> str:
+    k = getattr(tower, "kind", None)
+    if k:
+        return k  # "fire" | "water" | "sand" | "rock"
+    # Fallback por nombre de clase si no hay .kind
+    name = tower.__class__.__name__.lower()
+    if "fire" in name:  return "fire"
+    if "water" in name: return "water"
+    if "sand" in name:  return "sand"
+    if "rock" in name:  return "rock"
+    return "rock"
 
 class Matrix:
     """Manejo visual y lógico de la matriz de juego, maneja instancias de Avatars, Rooks, monedas y torres."""
@@ -197,6 +210,7 @@ class Matrix:
         fb = Fireball(self.cellSize)
         fb.set_top_center(x_center, y_bottom_tower_cell - fb.rect.height)
         self.projectiles.append(fb)
+        sfx("tower_sent")
     
     def _spawn_waterdrop_below(self, tower):
         row_below = tower.row + 1
@@ -207,6 +221,7 @@ class Matrix:
         wd = WaterDrop(self.cellSize)
         wd.set_top_center(x_center, y_bottom - wd.rect.height)
         self.projectiles.append(wd)
+        sfx("tower_sent")
 
     def _spawn_sandshard_below(self, tower):
         row_below = tower.row + 1
@@ -217,6 +232,7 @@ class Matrix:
         ss = SandShard(self.cellSize)
         ss.set_top_center(x_center, y_bottom - ss.rect.height)
         self.projectiles.append(ss)
+        sfx("tower_sent")
     
     def _spawn_rock_below(self, tower):
         row_below = tower.row + 1
@@ -227,6 +243,7 @@ class Matrix:
         ss = Rock(self.cellSize)
         ss.set_top_center(x_center, y_bottom - ss.rect.height)
         self.projectiles.append(ss)
+        sfx("tower_sent")
 
     def cell_to_pixel(self, row, col):
         px = self.imagePos[0] + col * self.cellSize[0]
@@ -537,6 +554,7 @@ class Matrix:
         # Forzar daño de la flecha del arquero: 2
         setattr(arr, "damage", 2)
         self.enemy_projectiles.append(arr)
+        sfx("avatar_sent", "arrow")
         
     def _spawn_enemy_sword_from_xy(self, cx, cy):
         sw = max(20, int(self.cellSize[0] * 0.40))
@@ -546,6 +564,7 @@ class Matrix:
         # Forzar daño del sword del escudero: 3
         setattr(sword, "damage", 3)
         self.enemy_projectiles.append(sword)
+        sfx("avatar_sent", "sword")
         
     def updateEnemies(self, dt):
         topLimitY = self.imagePos[1]
@@ -583,7 +602,10 @@ class Matrix:
             hit = False
             cell = self.calculateCell((a.rect.centerx, a.rect.top))
             if cell and cell in self.towers:
+                tower = self.towers[cell]
                 self.damage_tower(cell[0], cell[1], getattr(a, "damage", 2))
+                kind = _tower_kind_for_sfx(tower)
+                sfx("tower_hit", kind)
                 hit = True
             if not hit:
                 alive.append(a)

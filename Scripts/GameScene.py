@@ -3,6 +3,7 @@ from Scene import Scene
 from ui.ShopPanel import ShopPanel
 from Matrix import Matrix
 from towers.TowerFactory import TowerFactory
+from sfx import init_sfx
 
 """Escena de juego con matriz, monedas y panel de torres."""
 class GameScene(Scene):
@@ -18,6 +19,9 @@ class GameScene(Scene):
         self.selectedRook = None
 
         self.shop = ShopPanel(self.res)
+        
+        init_sfx()
+
 
     def draw(self, screen):
         self.matrix.draw(screen)

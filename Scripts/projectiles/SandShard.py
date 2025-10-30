@@ -20,3 +20,7 @@ class SandShard(Projectile):
             vy=315.0               # hacia abajo
         )
         self.contact_damage = 3
+        self.owner = "tower"
+        self.sfx_key = "sand"
+        self.damage = 3  # reemplaza contact_damage por damage si existía
+
