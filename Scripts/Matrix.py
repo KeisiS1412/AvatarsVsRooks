@@ -18,43 +18,42 @@ from Enemies.CannibalEnemy import Cannibal
 
 class Matrix:
     """Manejo visual y lógico de la matriz de juego, maneja instancias de Avatars, Rooks, monedas y torres."""
-    def __init__(self, rows, cols, cellSize, imagePos, difficulty="normal"):
-        self.rows = rows
-        self.cols = cols
-        self.cellSize = cellSize
-        self.imagePos = imagePos
-        self.matrix = [[0 for _ in range(cols)] for _ in range(rows)]
-        self.towers = []
+    def __init__(self, res, difficulty="easy"):
+        self.ROWS = 10
+        self.COLUMNS = 6
+        self.createMatrix()
+
+        # listas auxiliares
+        self.rooksList = []
+        self.avatarsList = []
+
+        self.res = res
+        self.projectiles = []
+        self.enemy_projectiles = []
+
         self.enemies = []
-        self.coins = []
-        self.totalDamage = 0
-        self.coinThreshold = 20  # Cada 20 puntos de daño global
-        self.baseSpawnCooldowns = {
-            "archer": 8.0,
-            "lumberjack": 10.0,
-            "wizard": 12.0
+
+        self.matrixImage = pygame.transform.rotate(pygame.image.load("Assets/matrix.png"), -90)
+        self.matrixImage = pygame.transform.rotozoom(self.matrixImage, 0, 0.61)
+        self.cellSize = (self.matrixImage.get_width() // 7, self.matrixImage.get_height() // 11)
+        self.imagePos = (self.res[0] // 2 - self.matrixImage.get_width() // 2, 0)
+
+        self.coinCells = set()
+        self.rect = pygame.Rect(
+            self.imagePos[0],
+            self.imagePos[1],
+            self.matrixImage.get_width(),
+            self.matrixImage.get_height()
+        )
+
+        self.difficulty = difficulty.lower()
+        self.enemySpawnTimersBase = {
+            "archer": 4000,
+            "squire": 6000,
+            "lumberjack": 8000,
+            "cannibal": 10000
         }
-
-        difficulty = difficulty.lower()
-        baseMultiplier = 1.0
-
-        # 🔹 Reducción acumulativa del 15 %
-        if difficulty == "easy":
-            self.difficultyMultiplier = baseMultiplier
-        elif difficulty == "normal":
-            self.difficultyMultiplier = baseMultiplier * 0.85
-        elif difficulty == "hard":
-            self.difficultyMultiplier = baseMultiplier * 0.85 * 0.85
-        else:
-            self.difficultyMultiplier = baseMultiplier
-
-        # 🔹 Aplicar reducción al tiempo de regeneración
-        self.spawnCooldowns = {
-            enemyType: baseTime * self.difficultyMultiplier
-            for enemyType, baseTime in self.baseSpawnCooldowns.items()
-        }
-
-        self.spawnTimers = {enemyType: 0.0 for enemyType in self.baseSpawnCooldowns}
+        self.enemySpawnTimers = self._applyDifficulty(self.enemySpawnTimersBase)
         self.enemyAccumulators = {k: 0 for k in self.enemySpawnTimers}
 
         self.towers = {}
