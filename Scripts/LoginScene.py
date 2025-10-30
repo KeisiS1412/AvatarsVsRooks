@@ -254,7 +254,10 @@ class LoginScene(Scene):
 
         if self.registerButton.wasClicked(event):
             self.switchScene("register")
-
+        if self.helpButton.wasClicked(event):
+            self.switchScene("Help")
+        if self.aboutButton.wasClicked(event):
+            self.switchScene("About")
         # 5) Click en el "link" de texto (forgot password)
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             if self.forgot_rect and self.forgot_rect.collidepoint(event.pos):
