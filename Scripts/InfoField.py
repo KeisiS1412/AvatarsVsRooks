@@ -19,6 +19,10 @@ class InfoField:
     def set_value(self, v):
         self.value = v
 
+    def set_content(self, new_content):
+        self.content = new_content
+        self.value = new_content
+
     def draw(self, s):
         pygame.draw.rect(s, self.bg, self.rect, border_radius=self.radius)
         val = self.font.render(self.value, True, self.text_color)

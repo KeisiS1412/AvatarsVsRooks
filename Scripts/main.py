@@ -11,7 +11,7 @@ BASE_W, BASE_H = 1920, 1080  # Resolución base
 
 info = pygame.display.Info()
 win_w, win_h = info.current_w, info.current_h
-screen = pygame.display.set_mode((win_w, win_h), pygame.FULLSCREEN)
+screen = pygame.display.set_mode((win_w, win_h))
 pygame.display.set_caption("Login")
 
 clock = pygame.time.Clock()
