@@ -14,6 +14,7 @@ class Sword:
         self.rect = self.image.get_rect()
         self.speed = speed_px_s
         self.damage = 3
+        self.alive = True
 
     def set_center(self, cx, cy):
         self.rect.center = (cx, cy)

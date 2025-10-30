@@ -195,6 +195,7 @@ class Matrix:
         self._maybe_spawn_flechero(dt_enemies)
         self._update_enemies(dt_enemies)
         self._update_enemy_projectiles(dt_enemies)
+        self._melee_damage_step(dt_enemies)
         self._maybe_spawn_squire(dt_enemies)
         self._maybe_spawn_lumberjack(dt_enemies)
         self._maybe_spawn_cannibal(dt_enemies)
@@ -462,6 +463,44 @@ class Matrix:
             # si pegó, NO la reinsertamos (desaparece en el impacto)
 
         self.enemy_projectiles = alive
+    
+    def _melee_damage_step(self, dt_sec: float):
+
+        for e in self.enemies:
+            if isinstance(e, Lumberjack):
+                base_dmg, base_cd = 9, 0.60
+            elif isinstance(e, Cannibal):
+                base_dmg, base_cd = 12, 0.70
+            else:
+                continue
+
+            # init cooldown/daño por enemigo
+            e._melee_accum = getattr(e, "_melee_accum", 0.0) + dt_sec
+            e._melee_cd = getattr(e, "_melee_cd", base_cd)
+            e._melee_dmg = getattr(e, "_melee_dmg", base_dmg)
+
+            if e._melee_accum < e._melee_cd:
+                continue
+            e._melee_accum = 0.0  # resetea cooldown
+
+            r = getattr(e, "row", None)
+            c = getattr(e, "col", None)
+            if r is None or c is None:
+                continue
+
+            # Vecinos a chequear:
+            #   arriba (r-1, c)  -> torre "sobre" el avatar
+            #   izquierda (r, c-1)
+            #   derecha (r, c+1)
+            OFFSETS = [(-1, 0), (0, -1), (0, 1)]
+
+            for dr, dc in OFFSETS:
+                nr, nc = r + dr, c + dc
+                if 0 <= nr < self.ROWS and 0 <= nc < self.COLUMNS:
+                    t = self.towers.get((nr, nc))
+                    if t:
+                        self.damage_tower(nr, nc, e._melee_dmg)
+
     
     def damage_tower(self, row, col, dmg):
         t = self.towers.get((row, col))
