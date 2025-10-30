@@ -1,7 +1,7 @@
 import pygame
 
 class TowerButton:
-    """Botón representando una torre con ícono y precio visible."""
+    """Botón representando una torre con ícono estático (sin precio visible)."""
 
     PRICES = {
         "sand": 25,
@@ -27,7 +27,6 @@ class TowerButton:
         self.border_color = (70, 70, 80)
         self.selected_color = (200, 160, 40)
         self._font = pygame.font.SysFont(None, 22)
-        self._price_font = pygame.font.SysFont(None, 20)
 
     def handle_event(self, event: pygame.event.Event) -> bool:
         """Devuelve True si este botón fue clickeado (click izquierdo)."""
@@ -51,9 +50,3 @@ class TowerButton:
         # Nombre de la torre (parte superior izquierda)
         label = self._font.render(self.tower_type.capitalize(), True, (230, 230, 235))
         screen.blit(label, (self.rect.x + 8, self.rect.y + 6))
-
-        # Precio en esquina superior derecha
-        price = self.PRICES.get(self.tower_type, 0)
-        price_text = self._price_font.render(f"${price}", True, (200, 200, 80))
-        price_rect = price_text.get_rect(topright=(self.rect.right - 10, self.rect.y + 6))
-        screen.blit(price_text, price_rect)
