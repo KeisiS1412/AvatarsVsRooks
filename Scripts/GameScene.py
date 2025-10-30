@@ -12,6 +12,7 @@ class GameScene(Scene):
         self.font = font
 
         self.matrix = Matrix(self.res)
+        self.matrix.onGameOver = self.handleGameOver
         self.coins = 0
         self.selectedRook = None
 
@@ -73,3 +74,6 @@ class GameScene(Scene):
 
     def update(self, dt):
         self.matrix.update(dt)
+
+    def handleGameOver(self):
+        self.switchScene("login")
