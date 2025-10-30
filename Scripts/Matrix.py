@@ -18,7 +18,7 @@ from Enemies.CannibalEnemy import Cannibal
 
 class Matrix:
     """Manejo visual y lógico de la matriz de juego, maneja instancias de Avatars, Rooks, monedas y torres."""
-    def __init__(self, res, difficulty):
+    def __init__(self, res, difficulty="easy"):
         self.ROWS = 10
         self.COLUMNS = 6
         self.createMatrix()
@@ -34,6 +34,7 @@ class Matrix:
 
         self.enemies = []
 
+        # imagen y cálculo de celdas
         self.matrixImage = pygame.transform.rotate(pygame.image.load("Assets/matrix.png"), -90)
         self.matrixImage = pygame.transform.rotozoom(self.matrixImage, 0, 0.61)
         self.cellSize = (self.matrixImage.get_width() // 7, self.matrixImage.get_height() // 11)
@@ -52,18 +53,18 @@ class Matrix:
         self.totalTime = 0  # (si lo usas en otra parte)
         self.difficulty = difficulty.lower()
 
-        # --- IMPORTANT: define enemySpawnTimersBase BEFORE calling setDifficulty ---
+        # --- Spawn timers base (ms) EXACTOS como pediste: 6s, 9s, 12s, 15s ---
         self.enemySpawnTimersBase = {
-            "archer": 4000,
-            "squire": 6000,
-            "lumberjack": 8000,
-            "cannibal": 10000
+            "archer": 6_000,      # 6s
+            "squire": 9_000,      # 9s
+            "lumberjack": 12_000, # 12s
+            "cannibal": 15_000    # 15s
         }
-        # initialize timers/accumulators from base (setDifficulty will override enemySpawnTimers)
+        # initialize timers/accumulators from base
         self.enemySpawnTimers = dict(self.enemySpawnTimersBase)
         self.enemyAccumulators = {k: 0 for k in self.enemySpawnTimers}
 
-        # ahora sí aplica la dificultad inicial (usa enemySpawnTimersBase dentro)
+        # Aplica dificultad inicial (reduce spawn en 15% por nivel)
         self.setDifficulty(self.difficulty)
 
         self.coinCells = set()
@@ -82,7 +83,7 @@ class Matrix:
         # cuántas monedas ya se han creado por el daño global (cada 20 puntos)
         self.globalCoinsDropped = 0
 
-        # configuración de spawns por tipo (tiempo random entre min/max, y máximo simultáneo)
+        # configuración de spawns por tipo (timer en segundos, usado por lógica unificada)
         self.enemyConfigs = {
             "archer": {"timer": random.uniform(18, 22), "min": 18, "max": 22, "maxSim": 1},
             "squire": {"timer": random.uniform(8, 12), "min": 8, "max": 12, "maxSim": 1},
@@ -194,9 +195,9 @@ class Matrix:
         # dt en milisegundos (tal y como viene de main.py)
         # --- tiempo del nivel actual ---
         self.levelTimeAccumulator += dt
+        self.totalTime += dt
 
         # --- Avanzar niveles si el acumulador supera la duración del nivel ---
-        # Si se alcanzan todos los niveles, activamos onNextScene una vez.
         while self.levelIndex < len(self.levelDurations) and self.levelTimeAccumulator >= self.levelDurations[self.levelIndex]:
             # restamos la duración completada para permitir saltos múltiples si dt es grande
             self.levelTimeAccumulator -= self.levelDurations[self.levelIndex]
@@ -220,13 +221,11 @@ class Matrix:
                     self.clear_units()
                     if callable(self.onNextScene):
                         self.onNextScene()
-                # no hacemos más lógica de nivel; dejamos que el resto siga limpiando objetos
                 break
 
-        # --- Si ya cambiamos escena, podemos evitar generar más cosas (opcional) ---
+        # --- Si ya cambiamos escena, evitamos spawnear enemigos nuevos ---
         if self.sceneChanged:
-            # aún actualizamos para que objetos existentes se limpien correctamente,
-            # pero no deberíamos spawnear enemigos nuevos.
+            # aún actualizamos objetos existentes para que se limpien correctamente
             pass
 
         # --- Spawneo por temporizadores globales (ms) ---
@@ -234,7 +233,9 @@ class Matrix:
             self.enemyAccumulators[enemyType] += dt
             if self.enemyAccumulators[enemyType] >= interval:
                 self.enemyAccumulators[enemyType] = 0
-                self.spawnEnemy(enemyType)
+                # no spawnear si ya cambiamos escena
+                if not self.sceneChanged:
+                    self.spawnEnemy(enemyType)
 
         # --- Actualiza monedas ---
         self.updateCoins(dt)
@@ -260,7 +261,7 @@ class Matrix:
             elif isinstance(tower, RockTower) and hasattr(tower, "tick_shoot") and tower.tick_shoot(dt):
                 self._spawn_rock_below(tower)
 
-        # --- Actualiza proyectiles y detección de colisiones (mismo código que ya tienes) ---
+        # --- Actualiza proyectiles y detección de colisiones ---
         bottom_limit = self.imagePos[1] + self.ROWS * self.cellSize[1]
         alive = []
         for p in self.projectiles:
@@ -313,7 +314,6 @@ class Matrix:
             self._kill_tower(pos[0], pos[1], self.towers.get(pos))
 
 
-
     def detectCoinClick(self, event):
         for coin in self.coins:
             if coin.detectClick(event):
@@ -351,12 +351,18 @@ class Matrix:
         return True
 
     def add_tower_instance(self, row, col, tower):
+        # agrega torre y asegura hp/is_alive por defecto si no existen
         self.towers[(row, col)] = tower
         self.matrix[row][col] = tower
         tower.row = row
         tower.col = col
         tower.cell_size = self.cellSize
         tower.image_pos = self.imagePos
+        if not hasattr(tower, "hp"):
+            # valor por defecto; ajústalo si quieres otro
+            tower.hp = 30
+        if not hasattr(tower, "is_alive"):
+            tower.is_alive = True
         if hasattr(tower, "bind_grid"):
             tower.bind_grid(row, col, self.cellSize, self.imagePos)
 
@@ -374,13 +380,17 @@ class Matrix:
         if config["timer"] > 0:
             return
         config["timer"] = random.uniform(config["min"], config["max"])
-        self.spawnEnemy(enemyType)
+        # respeta sceneChanged (no spawn si ya cambiaste escena)
+        if not self.sceneChanged:
+            self.spawnEnemy(enemyType)
 
     def _spawn_enemy_arrow_from_xy(self, cx, cy):
         arrow_w = max(18, int(self.cellSize[0] * 0.35))
         arrow_h = int(arrow_w * 2.2)
         arr = Arrow("Assets/enemies/flecha.png", speed_px_s=380, scale_px=(arrow_w, arrow_h))
         arr.set_center(cx, cy)
+        # Forzar daño de la flecha del arquero: 2
+        setattr(arr, "damage", 2)
         self.enemy_projectiles.append(arr)
         
     def _spawn_enemy_sword_from_xy(self, cx, cy):
@@ -388,6 +398,8 @@ class Matrix:
         sh = int(sw * 1.8)
         sword = Sword("Assets/enemies/sword.png", speed_px_s=320, scale_px=(sw, sh))
         sword.set_center(cx, cy)
+        # Forzar daño del sword del escudero: 3
+        setattr(sword, "damage", 3)
         self.enemy_projectiles.append(sword)
         
     def updateEnemies(self, dt):
@@ -491,7 +503,8 @@ class Matrix:
         valid_cols = [1, 2, 3, 4, 5]
         col = random.choice(valid_cols)
 
-        if enemyType.lower() == "archer":
+        et = enemyType.lower()
+        if et == "archer":
             enemy = Archer(
                 spritesheet_path="Assets/enemies/flechero.png",
                 cell_size=self.cellSize,
@@ -502,7 +515,9 @@ class Matrix:
                 wait_time=12.0, move_time=0.50, move_anim_fps=6, scale_fit=0.9,
                 on_shoot=self._spawn_enemy_arrow_from_xy
             )
-        elif enemyType.lower() == "squire":
+            # Forzamos HP y valores relevantes
+            enemy.hp = 5
+        elif et == "squire":
             enemy = Squire(
                 spritesheet_path="Assets/enemies/escudero.png",
                 cell_size=self.cellSize,
@@ -510,10 +525,11 @@ class Matrix:
                 rows=self.ROWS, cols=self.COLUMNS,
                 row=last_row, col=col,
                 frames_rows=3, frames_cols=4,
-                wait_time=12.0, move_time=0.50, move_anim_fps=8, scale_fit=0.9,
+                wait_time=13.0, move_time=0.50, move_anim_fps=8, scale_fit=0.9,
                 on_attack=self._spawn_enemy_sword_from_xy
             )
-        elif enemyType.lower() == "lumberjack":
+            enemy.hp = 10
+        elif et == "lumberjack":
             enemy = Lumberjack(
                 spritesheet_path="Assets/enemies/leñador.png",
                 cell_size=self.cellSize,
@@ -521,9 +537,10 @@ class Matrix:
                 rows=self.ROWS, cols=self.COLUMNS,
                 row=last_row, col=col,
                 frames_rows=3, frames_cols=4,
-                wait_time=12.0, move_time=0.50, move_anim_fps=8, scale_fit=0.9
+                wait_time=10.0, move_time=0.50, move_anim_fps=8, scale_fit=0.9
             )
-        elif enemyType.lower() == "cannibal":
+            enemy.hp = 20
+        elif et == "cannibal":
             enemy = Cannibal(
                 spritesheet_path="Assets/enemies/canibal.png",
                 cell_size=self.cellSize,
@@ -534,28 +551,46 @@ class Matrix:
                 wait_time=14.0, move_time=0.55, move_anim_fps=8, scale_fit=0.92,
                 crop_left=1, crop_right=1, crop_top=1, crop_bottom=1
             )
+            enemy.hp = 25
         else:
             return
+
         enemy.maxHp = getattr(enemy, "hp", None)
         enemy.coinsDropped = 0
+        enemy.alive = True
         self.enemies.append(enemy)
 
     def setDifficulty(self, difficulty):
+        """
+        Ajusta los timers de spawn basado en la dificultad.
+        Queremos reducir el tiempo de spawn en un 15% por cada paso:
+          easy -> base
+          normal -> base * 0.85
+          hard -> base * 0.85 * 0.85 (acumulativo)
+        """
         self.difficulty = difficulty.lower()
-        multiplier = 1.0
         if self.difficulty == "easy":
-            multiplier = 1.25   
+            mult = 1.0
         elif self.difficulty == "normal":
-            multiplier = 1.0
+            mult = 0.85
         elif self.difficulty == "hard":
-            multiplier = 0.75   
-        self.enemySpawnTimers = {k: int(v * multiplier) for k, v in self.enemySpawnTimersBase.items()}
+            mult = 0.85 * 0.85
+        else:
+            mult = 1.0
+        # aplicar multiplicador sobre la base (en ms), evitando valores absurdos
+        self.enemySpawnTimers = {k: max(200, int(v * mult)) for k, v in self.enemySpawnTimersBase.items()}
+        # reiniciamos acumuladores para evitar spawn instantáneo al cambiar dificultad
+        self.enemyAccumulators = {k: 0 for k in self.enemySpawnTimers}
+        print(f"[Matrix] setDifficulty -> {self.difficulty}, spawn timers: {self.enemySpawnTimers}")
 
     def _applyDifficulty(self, baseTimers):
+        """
+        (Utilidad, no estrictamente usada) Mapea dificultad a multiplicadores legibles.
+        """
         difficultyMultipliers = {
-            "easy": 1.0,     
-            "normal": 1.15,   
-            "hard": 1.15*1.15      
+            "easy": 1.0,
+            "normal": 0.85,
+            "hard": 0.85 * 0.85
         }
         multiplier = difficultyMultipliers.get(self.difficulty, 1.0)
         adjusted = {k: int(v * multiplier) for k, v in baseTimers.items()}
@@ -577,7 +612,7 @@ class Matrix:
                 enemy.hp = max(0, int(beforeHp) - int(damage))
         afterHp = getattr(enemy, "hp", None)
         if beforeHp is None or afterHp is None:
-            delta = int(damage)  
+            delta = int(damage)
         else:
             delta = max(0, int(beforeHp) - int(afterHp))
         self.globalDamageAccumulator += delta
@@ -597,7 +632,6 @@ class Matrix:
     def get_remaining_time(self):
         """
         Devuelve segundos restantes del nivel actual.
-        Al avanzar de nivel el contador se reinicia (cada nivel empieza con su duración completa).
         """
         if self.levelIndex >= len(self.levelDurations):
             return 0
@@ -607,6 +641,7 @@ class Matrix:
         return max(0, remaining_ms // 1000)
     
     def clear_units(self):
+        # Limpia torres (intenta kill + quitar de grid)
         for tower in list(self.towers.values()):
             try:
                 setattr(tower, "is_alive", False)
@@ -625,6 +660,8 @@ class Matrix:
                 except Exception:
                     pass
         self.towers.clear()
+
+        # Limpia enemigos
         for e in list(self.enemies):
             try:
                 setattr(e, "alive", False)
@@ -643,6 +680,8 @@ class Matrix:
                 except Exception:
                     pass
         self.enemies.clear()
+
+        # Limpia rooks
         for rook in list(self.rooksList):
             try:
                 setattr(rook, "is_alive", False)
@@ -662,6 +701,7 @@ class Matrix:
                     pass
         self.rooksList.clear()
 
+        # Limpia avatars
         for avatar in list(self.avatarsList):
             try:
                 setattr(avatar, "is_alive", False)
@@ -680,6 +720,8 @@ class Matrix:
                 except Exception:
                     pass
         self.avatarsList.clear()
+
+        # Proyectiles
         try:
             for p in list(self.projectiles):
                 try:
@@ -698,11 +740,15 @@ class Matrix:
             self.enemy_projectiles.clear()
         except Exception:
             self.enemy_projectiles = []
+
+        # Limpia la matriz de referencias no-int (si hay objetos)
         for r in range(self.ROWS):
             for c in range(self.COLUMNS):
                 cell = self.matrix[r][c]
                 if cell and not isinstance(cell, int):
                     self.matrix[r][c] = 0
+
+        # Reset acumuladores y timers de spawn config
         try:
             self.enemyAccumulators = {k: 0 for k in self.enemySpawnTimers}
         except Exception:
@@ -713,4 +759,3 @@ class Matrix:
             except Exception:
                 pass
         print("[Matrix] clear_units: torres/enemigos/rooks/avatars/proyectiles limpiados")
-
