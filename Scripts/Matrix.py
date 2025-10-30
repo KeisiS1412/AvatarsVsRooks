@@ -15,6 +15,7 @@ from Enemies.SquireEnemy import Squire
 from projectiles.Sword import Sword
 from Enemies.LumberjackEnemy import Lumberjack
 from Enemies.CannibalEnemy import Cannibal
+from towers.TowerFactory import TowerFactory
 
 class Matrix:
     """Manejo visual y lógico de la matriz de juego, maneja instancias de Avatars, Rooks, monedas y torres."""
@@ -33,8 +34,36 @@ class Matrix:
         self.onNextScene = None
 
         self.enemies = []
+        self.enemy_projectiles = []
 
-        # imagen y cálculo de celdas
+        self.money = 0
+        self._hud_font = pygame.font.SysFont("Arial", 26, bold=True)
+
+        # Spawn controlado (uno cada ~20 s)
+        self.flech_spawn_min = 18.0
+        self.flech_spawn_max = 22.0
+        self.flech_spawn_timer = random.uniform(self.flech_spawn_min, self.flech_spawn_max)
+        self.max_flecheros = 1
+        self.flech_spawn_min = 18.0
+        self.flech_spawn_max = 22.0
+        self.flech_spawn_timer = random.uniform(self.flech_spawn_min, self.flech_spawn_max)
+        self.max_flecheros = 1
+
+        self.squire_spawn_min = 8.0
+        self.squire_spawn_max = 12.0
+        self.squire_spawn_timer = random.uniform(self.squire_spawn_min, self.squire_spawn_max)
+        self.max_squires = 1 
+
+        self.lumber_spawn_min = 10.0
+        self.lumber_spawn_max = 14.0
+        self.lumber_spawn_timer = random.uniform(self.lumber_spawn_min, self.lumber_spawn_max)
+        self.max_lumberjacks = 1
+
+        self.cannibal_spawn_min = 11.0
+        self.cannibal_spawn_max = 16.0
+        self.cannibal_spawn_timer = random.uniform(self.cannibal_spawn_min, self.cannibal_spawn_max)
+        self.max_cannibals = 2
+
         self.matrixImage = pygame.transform.rotate(pygame.image.load("Assets/matrix.png"), -90)
         self.matrixImage = pygame.transform.rotozoom(self.matrixImage, 0, 0.61)
         self.cellSize = (self.matrixImage.get_width() // 7, self.matrixImage.get_height() // 11)
@@ -110,6 +139,16 @@ class Matrix:
             tower.draw(screen)
             if hasattr(tower, "draw_hp_bar"):
                 tower.draw_hp_bar(screen)
+        self._draw_money_hud(screen)
+
+    def _draw_money_hud(self, screen):
+        text = f"${self.money}"
+        # Sombra suave para legibilidad
+        shadow = self._hud_font.render(text, True, (30, 30, 30))
+        surf   = self._hud_font.render(text, True, (255, 230, 90))
+        x, y = 1600, 15
+        screen.blit(shadow, (x + 2, y + 2))
+        screen.blit(surf, (x, y))
 
     def _spawn_fireball_below(self, tower):
         x_center = self.imagePos[0] + tower.col * self.cellSize[0] + self.cellSize[0] // 2
@@ -152,8 +191,19 @@ class Matrix:
         px = self.imagePos[0] + col * self.cellSize[0]
         py = self.imagePos[1] + row * self.cellSize[1]
         return (px, py)
+    
+    def add_tower_instance(self, row, col, tower):
+        # Marca en estructuras
+        self.towers[(row, col)] = tower
+        self.matrix[row][col] = tower
 
-    def addAvatar(self, instance, pos):
+        # Ayuda a la torre a conocer su grid (si lo usa)
+        setattr(tower, "row", row)
+        setattr(tower, "col", col)
+        if hasattr(tower, "bind_grid"):
+            tower.bind_grid(row, col, self.cellSize, self.imagePos)
+
+    def addAvatar(self, instance, pos):  # Añade un avatar en la posición dada
         self.matrix[pos[0]][pos[1]] = instance
         self.avatarsList.append(instance)
     
@@ -315,20 +365,15 @@ class Matrix:
 
 
     def detectCoinClick(self, event):
-        for coin in self.coins:
+        for coin in list(self.coins):
             if coin.detectClick(event):
                 self.coins.remove(coin)
+                self.add_money(coin.value)
                 return coin.value
         return 0
-    
-    def addCoin(self, val=None):
-        """
-        Crea una moneda en una celda aleatoria.
-        Si val es None, escoge aleatoriamente entre 25, 50 y 100.
-        """
-        if val is None:
-            val = random.choice([25, 50, 100])
 
+    
+    def addCoin(self, val):
         while True:
             x = random.randint(1, self.COLUMNS - 1)
             y = random.randint(1, self.ROWS - 1)
@@ -342,6 +387,52 @@ class Matrix:
         )
         newCoin = Coin(val, pos)
         self.coins.append(newCoin)
+
+        
+    def add_money(self, amount: int):
+        """Suma (o resta si amount<0) y evita negativos."""
+        try:
+            self.money = max(0, int(self.money) + int(amount))
+        except Exception:
+            # fallback defensivo si amount no fue entero
+            self.money = max(0, int(self.money))
+
+    def can_afford(self, tower_type: str) -> bool:
+        """¿Alcanza el dinero para comprar 'tower_type'?"""
+        try:
+            return self.money >= TowerFactory.get_cost(tower_type)
+        except Exception:
+            return False
+
+    def try_place_tower(self, tower_type: str, row: int, col: int) -> bool:
+        """
+        Intenta comprar y colocar una torre en (row, col).
+        - Verifica celda válida
+        - Verifica dinero suficiente
+        - Descuenta y coloca
+        Devuelve True si se colocó.
+        """
+        if not self.can_place_tower(row, col):
+            # celda ocupada o fila prohibida
+            return False
+
+        
+        cost = TowerFactory.get_cost(tower_type)
+        if self.money < cost:
+            # fondos insuficientes
+            return False
+
+        # Crea torre usando tu factoría actual (mismos parámetros que ya usas)
+        cell_tl = self.cell_to_pixel(row, col)  # topleft de la celda
+        tower = TowerFactory.create_tower(tower_type, self.cellSize, cell_tl, row, col)
+        if tower is None:
+            return False
+
+        # Descontar y colocar
+        self.money -= cost
+        self.add_tower_instance(row, col, tower)
+        return True
+
 
     def can_place_tower(self, row, col):
         if col == 0 or row == 0 or row == self.ROWS - 1:

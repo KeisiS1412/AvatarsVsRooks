@@ -1,6 +1,7 @@
 import pygame
 from .AssetsUtils import AssetsUtils
 from .TowerButton import TowerButton
+from towers.TowerFactory import TowerFactory
 class ShopPanel:
     """Panel lateral derecho con botones para seleccionar el tipo de torre."""
 
@@ -17,17 +18,18 @@ class ShopPanel:
 
         # Layout
         padding = 16
-        slot_h = 90
         x = self.rect.x + padding
         y = self.rect.y + padding + 28
         w = self.width - 2 * padding
 
-        # Cargar íconos de torres
-        fire_icon = AssetsUtils.load_first_frame("Assets/towers/fire.png", 4, 2, (72, 72))
-        # (Para cuando existan)
-        water_icon = AssetsUtils.load_first_frame("Assets/towers/water2.png", 4, 2, (72, 72))
-        sand_icon = AssetsUtils.load_first_frame("Assets/towers/sand.png", 4, 2, (72, 72))
-        rock_icon = AssetsUtils.load_first_frame("Assets/towers/rock.png", 4, 2, (72, 72))
+        slot_h = 220  
+        icon_size = (100, 150)  # íconos más grandes y centrados
+
+        fire_icon = AssetsUtils.load_first_frame("Assets/towers/fire.png", 4, 2, icon_size)
+        water_icon = AssetsUtils.load_first_frame("Assets/towers/water2.png", 4, 2, icon_size)
+        sand_icon = AssetsUtils.load_first_frame("Assets/towers/sand.png", 4, 2, icon_size)
+        rock_icon = AssetsUtils.load_first_frame("Assets/towers/rock.png", 4, 2, icon_size)
+
 
         # Crear botones
         self.buttons: list[TowerButton] = []
@@ -43,19 +45,11 @@ class ShopPanel:
         self._selected_type = None
         self._sync_selection()
 
-    def _sync_selection(self):
-        """Actualiza visualmente cuál botón está seleccionado."""
+    def _sync_selection(self): # Actualiza el estado de selección de los botones
         for button in self.buttons:
             button.selected = (button.tower_type == self._selected_type)
 
-    def handle_event(self, event: pygame.event.Event) -> tuple[bool, bool]:
-        """
-        Procesa un evento de pygame.
-        Retorna:
-          (consumed, changed)
-          consumed=True si el click fue dentro del panel
-          changed=True si cambió la torre seleccionada
-        """
+    def handle_event(self, event: pygame.event.Event) -> tuple[bool, bool]: # Maneja eventos de mouse, devuelve (consumido, cambió selección)
         if event.type == pygame.MOUSEBUTTONDOWN and event.button in (1, 3):
             # Click derecho: cancelar selección si fue dentro del panel
             if event.button == 3 and self.rect.collidepoint(event.pos):
@@ -77,18 +71,16 @@ class ShopPanel:
                 return True, False
         return False, False
 
-    def clear_selection(self):
-        """Limpia cualquier torre seleccionada."""
+
+    def clear_selection(self): # Deselecciona la torre actualmente seleccionada
         if self._selected_type is not None:
             self._selected_type = None
             self._sync_selection()
 
-    def get_selected_type(self) -> str:
-        """Devuelve el tipo de torre actualmente seleccionado."""
+    def get_selected_type(self) -> str: # Devuelve el tipo de torre actualmente seleccionado
         return self._selected_type
 
-    def draw(self, screen: pygame.Surface):
-        """Dibuja el panel lateral completo."""
+    def draw(self, screen: pygame.Surface): # Dibuja el panel y sus botones
         pygame.draw.rect(screen, self.bg_color, self.rect)
         pygame.draw.rect(screen, self.border_color, self.rect, 2)
 
@@ -97,3 +89,13 @@ class ShopPanel:
 
         for button in self.buttons:
             button.draw(screen)
+
+            price = TowerFactory.get_cost(button.tower_type)
+            price_text = f"${price}"
+            price_surf = self._font.render(price_text, True, (255, 220, 90))
+
+            bx, by, bw, bh = button.rect
+            text_x = bx + (bw - price_surf.get_width()) // 2
+            text_y = by + bh - 25
+            screen.blit(price_surf, (text_x, text_y))
+

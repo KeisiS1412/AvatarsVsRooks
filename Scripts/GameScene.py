@@ -54,10 +54,8 @@ class GameScene(Scene):
             if self.matrix.rect.collidepoint(event.pos):
 
                 # ★ PRIORIDAD MONEDAS: trata de recoger primero
-                earned = self.matrix.detectCoinClick(event)
+                earned = self.matrix.detectCoinClick(event)  # ya suma a self.matrix.money
                 if earned > 0:
-                    self.coins += earned
-                    # print(f"Coins: {self.coins}")
                     return  # ya usamos el click para moneda
 
                 # Si no había moneda, entonces veamos si hay torre seleccionada
@@ -66,20 +64,20 @@ class GameScene(Scene):
                     cell = self.matrix.calculateCell(event.pos)
                     if cell is not None:
                         row, col = cell
-                        if self.matrix.can_place_tower(row, col):
-                            cell_topleft = self.matrix.cell_to_pixel(row, col)
-                            tower = TowerFactory.create_tower(
-                                tower_type, self.matrix.cellSize, cell_topleft, row, col
-                            )
-                            if tower:
-                                self.matrix.add_tower_instance(row, col, tower)
-                    return  # click procesado
+                        placed = self.matrix.try_place_tower(tower_type, row, col)
+                        if placed:
+                            # compra y colocación OK -> deseleccionar herramienta
+                            self.shop.clear_selection()
+                        # Si no se pudo (fondos/celda), puedes mostrar feedback aquí si quieres
+                    return  # click procesado, no continues con otras acciones
 
                 # Sin torre seleccionada: tu flujo original de rook / otras acciones
                 if self.selectedRook:
-                    if self.selectedRook.cost < self.coins:
-                        self.coins = self.coins - self.selectedRook.cost
+                    cost = getattr(self.selectedRook, "cost", 0)
+                    if self.matrix.money >= cost:
+                        self.matrix.money -= cost
                         self.matrix.addRook(event, self.selectedRook)
+
 
 
     def update(self, dt):
