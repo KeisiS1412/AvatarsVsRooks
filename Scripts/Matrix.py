@@ -36,7 +36,7 @@ class Matrix:
         self.enemies = []
         self.enemy_projectiles = []
 
-        self.money = 0
+        self.money = 300
         self._hud_font = pygame.font.SysFont("Arial", 26, bold=True)
 
         # Spawn controlado (uno cada ~20 s)
@@ -139,16 +139,57 @@ class Matrix:
             tower.draw(screen)
             if hasattr(tower, "draw_hp_bar"):
                 tower.draw_hp_bar(screen)
-        self._draw_money_hud(screen)
+        # HUD en la parte derecha, centrado verticalmente
+        self._draw_hud(screen)
 
-    def _draw_money_hud(self, screen):
-        text = f"${self.money}"
-        # Sombra suave para legibilidad
-        shadow = self._hud_font.render(text, True, (30, 30, 30))
-        surf   = self._hud_font.render(text, True, (255, 230, 90))
-        x, y = 1600, 15
-        screen.blit(shadow, (x + 2, y + 2))
-        screen.blit(surf, (x, y))
+    def _draw_hud(self, screen):
+        """Dibuja panel en la parte derecha (centrado vertical) con:
+           - Dinero
+           - Tiempo restante (MM:SS)
+           - Dificultad
+        """
+        # Preparar textos
+        money_text = f"${self.money}"
+        seconds = self.get_remaining_time()
+        mm = seconds // 60
+        ss = seconds % 60
+        time_text = f"{mm:02d}:{ss:02d}"
+        diff_text = f"Difficulty: {self.difficulty.capitalize()}"
+
+        surf_money = self._hud_font.render(money_text, True, (255, 230, 90))
+        surf_time  = self._hud_font.render(time_text, True, (230, 230, 230))
+        surf_diff  = self._hud_font.render(diff_text, True, (230, 230, 235))
+
+        spacing = 8
+        padding = 12
+
+        # calcular tamaño panel
+        text_widths = [surf_money.get_width(), surf_time.get_width(), surf_diff.get_width()]
+        panel_w = max(text_widths) + padding * 2
+        panel_h = surf_money.get_height() + surf_time.get_height() + surf_diff.get_height() + spacing * 2 + padding * 2
+
+        # crear surface semitransparente
+        panel = pygame.Surface((panel_w, panel_h), pygame.SRCALPHA)
+        panel.fill((10, 10, 12, 160))  # fondo semitransparente
+
+        # dibujar bordes ligeros
+        pygame.draw.rect(panel, (80, 80, 90, 200), panel.get_rect(), width=2, border_radius=8)
+
+        # posiciones dentro del panel
+        x_text = padding
+        y_text = padding
+        panel.blit(surf_money, (x_text, y_text))
+        y_text += surf_money.get_height() + spacing
+        panel.blit(surf_time, (x_text, y_text))
+        y_text += surf_time.get_height() + spacing
+        panel.blit(surf_diff, (x_text, y_text))
+
+        # posición en pantalla (derecha, centrado vertical)
+        margin_right = 20
+        screen_x = self.res[0] - panel_w - margin_right
+        screen_y = (self.res[1] // 2) - (panel_h // 2)
+
+        screen.blit(panel, (screen_x, screen_y))
 
     def _spawn_fireball_below(self, tower):
         x_center = self.imagePos[0] + tower.col * self.cellSize[0] + self.cellSize[0] // 2
@@ -373,17 +414,30 @@ class Matrix:
         return 0
 
     
-    def addCoin(self, val):
+    def addCoin(self, val=None):
+        # elegir denominación si no se especificó
+        if val is None:
+            val = random.choice([25, 50, 100])
+
+        # busca una celda libre para colocar la moneda (evita repetir)
+        attempts = 0
         while True:
             x = random.randint(1, self.COLUMNS - 1)
             y = random.randint(1, self.ROWS - 1)
             if (x, y) not in self.coinCells:
                 self.coinCells.add((x, y))
                 break
+            attempts += 1
+            # por seguridad, salir si no encuentra tras muchas iteraciones
+            if attempts > 50:
+                # coloca en (1,1) como fallback
+                x, y = 1, 1
+                self.coinCells.add((x, y))
+                break
 
         pos = (
-            self.imagePos[0] + x * self.cellSize[0] + random.randint(0, 1) * self.cellSize[0] // 2,
-            self.imagePos[1] + y * self.cellSize[1] + random.randint(0, 1) * self.cellSize[1] // 2
+            self.imagePos[0] + x * self.cellSize[0] + random.randint(0, 1) * (self.cellSize[0] // 2),
+            self.imagePos[1] + y * self.cellSize[1] + random.randint(0, 1) * (self.cellSize[1] // 2)
         )
         newCoin = Coin(val, pos)
         self.coins.append(newCoin)

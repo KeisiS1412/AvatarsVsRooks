@@ -6,7 +6,7 @@ class Coin:
     def __init__(self, val, pos):
         self.value = val
         self.spritesheet = pygame.image.load("Assets/coinsSpritesheet.png").convert_alpha()
-        row = {25: 1, 50: 2, 100: 4}
+        row = {25: 4, 50: 2, 100: 1}
         self.row = row.get(val, 0)
         self.sprites = self.getSprites()
         self.position = pos
