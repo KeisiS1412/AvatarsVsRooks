@@ -18,7 +18,7 @@ from Enemies.CannibalEnemy import Cannibal
 
 class Matrix:
     """Manejo visual y lógico de la matriz de juego, maneja instancias de Avatars, Rooks, monedas y torres."""
-    def __init__(self, res, difficulty="easy"):
+    def __init__(self, res, difficulty):
         self.ROWS = 10
         self.COLUMNS = 6
         self.createMatrix()
@@ -39,11 +39,32 @@ class Matrix:
         self.cellSize = (self.matrixImage.get_width() // 7, self.matrixImage.get_height() // 11)
         self.imagePos = (self.res[0] // 2 - self.matrixImage.get_width() // 2, 0)
 
-        self.totalTime = 0  # ms transcurridos desde el inicio
+        # --- Niveles / tiempos por nivel (ms) ---
+        base_ms = 60 * 1000  # 60s
+        lvl1 = base_ms
+        lvl2 = int(lvl1 * 1.25)         # +25% del anterior
+        lvl3 = int(lvl2 * 1.25)         # +25% del anterior
+        self.levelDurations = [lvl1, lvl2, lvl3]  # tres niveles antes de cambiar escena
+        self.levelIndex = 0                 # índice actual (0 = primer nivel)
+        self.levelTimeAccumulator = 0       # ms transcurridos en el nivel actual
         self.sceneChanged = False
-        self.time_easy_to_normal = 60*1000
-        self.time_normal_to_hard =  60*1.25*1000
-        self.time_hard_to_next_scene = 60*1.25*1.25*1000
+
+        self.totalTime = 0  # (si lo usas en otra parte)
+        self.difficulty = difficulty.lower()
+
+        # --- IMPORTANT: define enemySpawnTimersBase BEFORE calling setDifficulty ---
+        self.enemySpawnTimersBase = {
+            "archer": 4000,
+            "squire": 6000,
+            "lumberjack": 8000,
+            "cannibal": 10000
+        }
+        # initialize timers/accumulators from base (setDifficulty will override enemySpawnTimers)
+        self.enemySpawnTimers = dict(self.enemySpawnTimersBase)
+        self.enemyAccumulators = {k: 0 for k in self.enemySpawnTimers}
+
+        # ahora sí aplica la dificultad inicial (usa enemySpawnTimersBase dentro)
+        self.setDifficulty(self.difficulty)
 
         self.coinCells = set()
         self.rect = pygame.Rect(
@@ -52,16 +73,6 @@ class Matrix:
             self.matrixImage.get_width(),
             self.matrixImage.get_height()
         )
-
-        self.difficulty = difficulty.lower()
-        self.enemySpawnTimersBase = {
-            "archer": 4000,
-            "squire": 6000,
-            "lumberjack": 8000,
-            "cannibal": 10000
-        }
-        self.enemySpawnTimers = self._applyDifficulty(self.enemySpawnTimersBase)
-        self.enemyAccumulators = {k: 0 for k in self.enemySpawnTimers}
 
         self.towers = {}
         self.coins = []
@@ -180,36 +191,64 @@ class Matrix:
             coin.draw(screen, coin.position)
 
     def update(self, dt):
-        self.totalTime += dt
+        # dt en milisegundos (tal y como viene de main.py)
+        # --- tiempo del nivel actual ---
+        self.levelTimeAccumulator += dt
 
-        if self.totalTime >= self.time_hard_to_next_scene and not self.sceneChanged:
-            self.sceneChanged = True
-            print("[Matrix] Cambiando a nueva escena...")
-            if callable(self.onNextScene):
-                self.onNextScene()  
-        elif self.totalTime >= self.time_normal_to_hard and self.difficulty != "hard":
-            self.setDifficulty("hard")
-            print("[Matrix] Dificultad cambiada a HARD")
-        elif self.totalTime >= self.time_easy_to_normal and self.difficulty != "normal":
-            self.setDifficulty("normal")
-            print("[Matrix] Dificultad cambiada a NORMAL")
+        # --- Avanzar niveles si el acumulador supera la duración del nivel ---
+        # Si se alcanzan todos los niveles, activamos onNextScene una vez.
+        while self.levelIndex < len(self.levelDurations) and self.levelTimeAccumulator >= self.levelDurations[self.levelIndex]:
+            # restamos la duración completada para permitir saltos múltiples si dt es grande
+            self.levelTimeAccumulator -= self.levelDurations[self.levelIndex]
+            self.levelIndex += 1
 
+            if self.levelIndex < len(self.levelDurations):
+                # cambiamos dificultad al nuevo nivel
+                if self.levelIndex == 1:
+                    self.setDifficulty("normal")
+                    print("[Matrix] Dificultad cambiada a NORMAL")
+                elif self.levelIndex == 2:
+                    self.setDifficulty("hard")
+                    print("[Matrix] Dificultad cambiada a HARD")
+                # limpiar rooks/avatars/enemigos/proyectiles al entrar al nuevo nivel
+                self.clear_units()
+            else:
+                # ya pasamos el último nivel -> cambiar de escena (una sola vez)
+                if not self.sceneChanged:
+                    self.sceneChanged = True
+                    print("[Matrix] Todos los niveles completados -> cambiando escena")
+                    self.clear_units()
+                    if callable(self.onNextScene):
+                        self.onNextScene()
+                # no hacemos más lógica de nivel; dejamos que el resto siga limpiando objetos
+                break
+
+        # --- Si ya cambiamos escena, podemos evitar generar más cosas (opcional) ---
+        if self.sceneChanged:
+            # aún actualizamos para que objetos existentes se limpien correctamente,
+            # pero no deberíamos spawnear enemigos nuevos.
+            pass
+
+        # --- Spawneo por temporizadores globales (ms) ---
         for enemyType, interval in self.enemySpawnTimers.items():
             self.enemyAccumulators[enemyType] += dt
             if self.enemyAccumulators[enemyType] >= interval:
                 self.enemyAccumulators[enemyType] = 0
                 self.spawnEnemy(enemyType)
 
+        # --- Actualiza monedas ---
         self.updateCoins(dt)
-        dt_enemies = dt / 1000.0 if dt > 5 else dt
 
+        # --- Spawneo unificado y actualización de enemigos ---
+        dt_seconds = dt / 1000.0 if dt > 5 else dt
         for enemyType in list(self.enemyConfigs.keys()):
-            self._maybe_spawn_enemy(dt_enemies, enemyType)
+            self._maybe_spawn_enemy(dt_seconds, enemyType)
 
-        self.updateEnemies(dt_enemies)
-        self._update_enemy_projectiles(dt_enemies)
-        self._melee_damage_step(dt_enemies)
-        
+        self.updateEnemies(dt_seconds)
+        self._update_enemy_projectiles(dt_seconds)
+        self._melee_damage_step(dt_seconds)
+
+        # --- Actualización de torres ---
         for tower in list(self.towers.values()):
             tower.update(dt)
             if isinstance(tower, FireTower) and tower.tick_shoot(dt):
@@ -221,14 +260,12 @@ class Matrix:
             elif isinstance(tower, RockTower) and hasattr(tower, "tick_shoot") and tower.tick_shoot(dt):
                 self._spawn_rock_below(tower)
 
+        # --- Actualiza proyectiles y detección de colisiones (mismo código que ya tienes) ---
         bottom_limit = self.imagePos[1] + self.ROWS * self.cellSize[1]
         alive = []
-
         for p in self.projectiles:
             p.update(dt)
-
             hit = False
-
             if isinstance(p, SandShard):
                 for e in self.enemies:
                     if not getattr(e, "alive", True):
@@ -237,7 +274,6 @@ class Matrix:
                         self._applyDamageAndSpawnCoins(e, 3)
                         hit = True
                         break
-
             elif isinstance(p, Rock):
                 for e in self.enemies:
                     if not getattr(e, "alive", True):
@@ -246,7 +282,6 @@ class Matrix:
                         self._applyDamageAndSpawnCoins(e, 4)
                         hit = True
                         break
-
             elif isinstance(p, Fireball):
                 for e in self.enemies:
                     if not getattr(e, "alive", True):
@@ -255,7 +290,6 @@ class Matrix:
                         self._applyDamageAndSpawnCoins(e, 10)
                         hit = True
                         break
-
             elif isinstance(p, WaterDrop):
                 for e in self.enemies:
                     if not getattr(e, "alive", True):
@@ -266,8 +300,9 @@ class Matrix:
                         break
             if (not hit) and (p.rect.top < bottom_limit):
                 alive.append(p)
-
         self.projectiles = alive
+
+        # --- Elimina torres destruidas ---
         dead_cells = []
         for pos, tower in list(self.towers.items()):
             hp = getattr(tower, "hp", None)
@@ -276,6 +311,7 @@ class Matrix:
                 dead_cells.append(pos)
         for pos in dead_cells:
             self._kill_tower(pos[0], pos[1], self.towers.get(pos))
+
 
 
     def detectCoinClick(self, event):
@@ -431,8 +467,6 @@ class Matrix:
         elif before is not None:
             t.hp = max(0, before - int(dmg))
         after = getattr(t, "hp", None)
-        # log opcional
-        print(f"[HIT] tower {(row, col)} hp {before} -> {after} (dmg={dmg})")
         if (after is not None and after <= 0) or not getattr(t, "is_alive", True):
             self._kill_tower(row, col, t)
 
@@ -502,12 +536,9 @@ class Matrix:
             )
         else:
             return
-
-        # Inicializaciones útiles
         enemy.maxHp = getattr(enemy, "hp", None)
         enemy.coinsDropped = 0
         self.enemies.append(enemy)
-        print(f"[Spawn {enemyType}] row={last_row}, col={col}, maxHp={enemy.maxHp}")
 
     def setDifficulty(self, difficulty):
         self.difficulty = difficulty.lower()
@@ -518,15 +549,13 @@ class Matrix:
             multiplier = 1.0
         elif self.difficulty == "hard":
             multiplier = 0.75   
-        # Ajusta timers
         self.enemySpawnTimers = {k: int(v * multiplier) for k, v in self.enemySpawnTimersBase.items()}
-        print(f"[Matrix] Enemy spawn timers ajustados: {self.enemySpawnTimers}")
 
     def _applyDifficulty(self, baseTimers):
         difficultyMultipliers = {
-            "easy": 1.3,     # +30% más lentos
-            "normal": 1.0,   # sin cambio
-            "hard": 0.7      # -30% más rápidos
+            "easy": 1.0,     
+            "normal": 1.15,   
+            "hard": 1.15*1.15      
         }
         multiplier = difficultyMultipliers.get(self.difficulty, 1.0)
         adjusted = {k: int(v * multiplier) for k, v in baseTimers.items()}
@@ -540,43 +569,23 @@ class Matrix:
         """
         if enemy is None:
             return
-
-        # HP antes
         beforeHp = getattr(enemy, "hp", None)
-
-        # Aplica daño usando la API del enemigo si existe
         if hasattr(enemy, "take_damage") and callable(enemy.take_damage):
             enemy.take_damage(int(damage))
         else:
             if beforeHp is not None:
                 enemy.hp = max(0, int(beforeHp) - int(damage))
-
-        # HP después
         afterHp = getattr(enemy, "hp", None)
-
-        # Calcular daño real aplicado en este golpe (por si hubo diferencias)
         if beforeHp is None or afterHp is None:
-            delta = int(damage)  # si no conocemos hp, asumimos el damage pedido
+            delta = int(damage)  
         else:
             delta = max(0, int(beforeHp) - int(afterHp))
-
-        # sumar al acumulador global
         self.globalDamageAccumulator += delta
-
-        # calcular cuántas monedas en total deberían haberse generado por daño global
         coinsShouldHave = self.globalDamageAccumulator // 20
-
-        # cuántas monedas faltan por generar (nuevas)
         newCoins = coinsShouldHave - int(self.globalCoinsDropped)
-
-        # generar las monedas nuevas (cada llamada a addCoin() elegirá valor aleatorio)
         for _ in range(max(0, newCoins)):
             self.addCoin()
-
-        # actualizar contador de monedas globales ya creadas
         self.globalCoinsDropped += max(0, newCoins)
-
-        # si el enemigo murió, marcarlo y disparar callback on_death si existe
         if afterHp is not None and afterHp <= 0:
             enemy.alive = False
             if callable(getattr(enemy, "on_death", None)):
@@ -586,11 +595,122 @@ class Matrix:
                     pass
 
     def get_remaining_time(self):
-        if self.totalTime < self.time_easy_to_normal:
-            remaining_ms = self.time_easy_to_normal - self.totalTime
-        elif self.totalTime < self.time_normal_to_hard:
-            remaining_ms = self.time_normal_to_hard - self.totalTime
-        else:
-            remaining_ms = self.time_hard_to_next_scene - self.totalTime
-
+        """
+        Devuelve segundos restantes del nivel actual.
+        Al avanzar de nivel el contador se reinicia (cada nivel empieza con su duración completa).
+        """
+        if self.levelIndex >= len(self.levelDurations):
+            return 0
+        remaining_ms = self.levelDurations[self.levelIndex] - self.levelTimeAccumulator
+        if remaining_ms < 0:
+            remaining_ms = 0
         return max(0, remaining_ms // 1000)
+    
+    def clear_units(self):
+        for tower in list(self.towers.values()):
+            try:
+                setattr(tower, "is_alive", False)
+            except Exception:
+                pass
+            try:
+                tower.kill()
+            except Exception:
+                pass
+            r = getattr(tower, "row", None)
+            c = getattr(tower, "col", None)
+            if r is not None and c is not None and 0 <= r < self.ROWS and 0 <= c < self.COLUMNS:
+                try:
+                    if self.matrix[r][c] is tower:
+                        self.matrix[r][c] = 0
+                except Exception:
+                    pass
+        self.towers.clear()
+        for e in list(self.enemies):
+            try:
+                setattr(e, "alive", False)
+            except Exception:
+                pass
+            try:
+                e.kill()
+            except Exception:
+                pass
+            r = getattr(e, "row", None)
+            c = getattr(e, "col", None)
+            if r is not None and c is not None and 0 <= r < self.ROWS and 0 <= c < self.COLUMNS:
+                try:
+                    if self.matrix[r][c] is e:
+                        self.matrix[r][c] = 0
+                except Exception:
+                    pass
+        self.enemies.clear()
+        for rook in list(self.rooksList):
+            try:
+                setattr(rook, "is_alive", False)
+            except Exception:
+                pass
+            try:
+                rook.kill()
+            except Exception:
+                pass
+            r = getattr(rook, "row", None)
+            c = getattr(rook, "col", None)
+            if r is not None and c is not None and 0 <= r < self.ROWS and 0 <= c < self.COLUMNS:
+                try:
+                    if self.matrix[r][c] is rook:
+                        self.matrix[r][c] = 0
+                except Exception:
+                    pass
+        self.rooksList.clear()
+
+        for avatar in list(self.avatarsList):
+            try:
+                setattr(avatar, "is_alive", False)
+            except Exception:
+                pass
+            try:
+                avatar.kill()
+            except Exception:
+                pass
+            r = getattr(avatar, "row", None)
+            c = getattr(avatar, "col", None)
+            if r is not None and c is not None and 0 <= r < self.ROWS and 0 <= c < self.COLUMNS:
+                try:
+                    if self.matrix[r][c] is avatar:
+                        self.matrix[r][c] = 0
+                except Exception:
+                    pass
+        self.avatarsList.clear()
+        try:
+            for p in list(self.projectiles):
+                try:
+                    p.kill()
+                except Exception:
+                    pass
+            self.projectiles.clear()
+        except Exception:
+            self.projectiles = []
+        try:
+            for p in list(self.enemy_projectiles):
+                try:
+                    p.kill()
+                except Exception:
+                    pass
+            self.enemy_projectiles.clear()
+        except Exception:
+            self.enemy_projectiles = []
+        for r in range(self.ROWS):
+            for c in range(self.COLUMNS):
+                cell = self.matrix[r][c]
+                if cell and not isinstance(cell, int):
+                    self.matrix[r][c] = 0
+        try:
+            self.enemyAccumulators = {k: 0 for k in self.enemySpawnTimers}
+        except Exception:
+            pass
+        for k, cfg in self.enemyConfigs.items():
+            try:
+                cfg["timer"] = random.uniform(cfg["min"], cfg["max"])
+            except Exception:
+                pass
+        print("[Matrix] clear_units: torres/enemigos/rooks/avatars/proyectiles limpiados")
+

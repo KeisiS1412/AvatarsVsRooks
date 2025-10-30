@@ -11,7 +11,7 @@ class GameScene(Scene):
         self.res = res
         self.font = font
 
-        self.matrix = Matrix(self.res)
+        self.matrix = Matrix(self.res, "easy")
         self.matrix.onGameOver = self.handleGameOver
         self.matrix.onNextScene = lambda: self.switchScene("next")
         self.coins = 0
