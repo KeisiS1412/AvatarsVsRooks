@@ -11,7 +11,10 @@ class GameScene(Scene):
         self.res = res
         self.font = font
 
-        self.matrix = Matrix(self.res)
+        self.matrix = Matrix(self.res, "easy")
+        self.matrix.onGameOver = self.handleGameOver
+        self.matrix.onNextScene = lambda: self.switchScene("next")
+        self.coins = 0
         self.selectedRook = None
 
         self.shop = ShopPanel(self.res)
@@ -20,6 +23,15 @@ class GameScene(Scene):
         self.matrix.draw(screen)
         self.matrix.drawCoins(screen)
         self.shop.draw(screen)
+
+        remaining = self.matrix.get_remaining_time()
+        time_text = f"Tiempo: {remaining}s"
+        text_surf = self.font.render(time_text, True, (255, 255, 255))
+        
+        # Posición: esquina superior derecha
+        x = self.res[0] - text_surf.get_width() - 10
+        y = 10
+        screen.blit(text_surf, (x, y))
 
     def handleEvent(self, event):
         # 0) Tecla ESC para cancelar selección desde cualquier escena
@@ -70,3 +82,6 @@ class GameScene(Scene):
 
     def update(self, dt):
         self.matrix.update(dt)
+
+    def handleGameOver(self):
+        self.switchScene("login")
