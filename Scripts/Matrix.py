@@ -17,6 +17,7 @@ from Enemies.LumberjackEnemy import Lumberjack
 from Enemies.CannibalEnemy import Cannibal
 from towers.TowerFactory import TowerFactory
 
+
 class Matrix:
     """Manejo visual y lógico de la matriz de juego, maneja instancias de Avatars, Rooks, monedas y torres."""
     def __init__(self, res, difficulty="easy"):
@@ -305,13 +306,49 @@ class Matrix:
                 # limpiar rooks/avatars/enemigos/proyectiles al entrar al nuevo nivel
                 self.clear_units()
             else:
-                # ya pasamos el último nivel -> cambiar de escena (una sola vez)
+                        # ya pasamos el último nivel -> cambiar de escena (una sola vez)
                 if not self.sceneChanged:
                     self.sceneChanged = True
                     print("[Matrix] Todos los niveles completados -> cambiando escena")
                     self.clear_units()
-                    if callable(self.onNextScene):
-                        self.onNextScene()
+
+                    # ==============================
+                    # 🔹 OBTENER DATOS DESDE SPOTIFY
+                    # ==============================
+                    from MusicSpotify import obtener_datos_cancion_actual
+                    from Algoritmo import calcular_puntaje_ajustado
+                    from pantalla import pantalla_victoria
+
+                    tempo, popularidad = obtener_datos_cancion_actual()
+
+                    # ==============================
+                    # 🔹 CALCULAR PUNTAJE
+                    # ==============================
+                    if tempo and popularidad:
+                        avatars_matados = len(getattr(self, "enemies", []))  # enemigos destruidos
+                        puntos_avatar = int(self.money)                      # dinero como puntaje base
+                        limite_maximo = 1000                                 # límite máximo arbitrario
+
+                        puntaje = calcular_puntaje_ajustado(
+                            tempo,
+                            popularidad,
+                            avatars_matados,
+                            puntos_avatar,
+                            limite_maximo
+                        )
+                        print(f"[Matrix] Puntaje final calculado: {puntaje:.2f}")
+                    else:
+                        puntaje = 0
+                        print("[Matrix] No se pudieron obtener datos de Spotify, puntaje = 0")
+
+                    # ==============================
+                    # 🔹 MOSTRAR PANTALLA DE VICTORIA
+                    # ==============================
+                    try:
+                        pantalla_victoria(username="Jugador", puntaje=puntaje)
+                    except Exception as e:
+                        print(f"[Matrix] Error al mostrar pantalla de victoria: {e}")
+
                 break
 
         # --- Si ya cambiamos escena, evitamos spawnear enemigos nuevos ---

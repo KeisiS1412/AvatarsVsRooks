@@ -8,8 +8,10 @@ pygame.init()
 # ================================
 # CONFIGURACIÓN GENERAL
 # ================================
-ANCHO, ALTO = 800, 600
-VENTANA = pygame.display.set_mode((ANCHO, ALTO))
+# Pantalla completa y resolución del sistema
+info = pygame.display.Info()
+ANCHO, ALTO = info.current_w, info.current_h
+VENTANA = pygame.display.set_mode((ANCHO, ALTO), pygame.FULLSCREEN)
 pygame.display.set_caption("Pantallas del Juego: Victoria, Derrota y Salón de la Fama")
 
 # Colores
@@ -18,9 +20,9 @@ NEGRO = (0, 0, 0)
 COLOR_VICTORIA = (120, 30, 30)
 COLOR_DERROTA = (40, 120, 40)
 
-# Fuentes
-FUENTE_TEXTO = pygame.font.SysFont("Arial", 60)
-FUENTE_BOTON = pygame.font.SysFont("Arial", 35)
+# Fuentes (ajustadas a resolución)
+FUENTE_TEXTO = pygame.font.SysFont("Arial", int(ALTO * 0.08))
+FUENTE_BOTON = pygame.font.SysFont("Arial", int(ALTO * 0.05))
 
 # Carpeta de recursos
 CARPETA_RECURSOS = os.path.join(os.path.dirname(__file__), "Imagenes-sonidos")
@@ -52,13 +54,15 @@ def pantalla_victoria(username="Jugador", puntaje=100):
         sonido = pygame.mixer.Sound(ruta_sonido)
         sonido.play()
 
-    frames = cargar_animacion("", 4, 200, 200)
+    # Tamaño relativo de animación
+    frames = cargar_animacion("", 4, int(ANCHO * 0.25), int(ALTO * 0.25))
     frame_actual = 0
     contador_frame = 0
     reloj = pygame.time.Clock()
 
-    boton_continuar = pygame.Rect(ANCHO // 2 - 250, ALTO - 100, 200, 60)
-    boton_fama = pygame.Rect(ANCHO // 2 + 50, ALTO - 100, 200, 60)
+    # Botones adaptados al tamaño de pantalla
+    boton_continuar = pygame.Rect(ANCHO // 2 - int(ANCHO * 0.25), ALTO - int(ALTO * 0.18), int(ANCHO * 0.20), int(ALTO * 0.10))
+    boton_fama = pygame.Rect(ANCHO // 2 + int(ANCHO * 0.05), ALTO - int(ALTO * 0.18), int(ANCHO * 0.20), int(ALTO * 0.10))
 
     # Guardar localmente y enviar al servidor
     guardar_en_fama(username, puntaje)
@@ -70,6 +74,8 @@ def pantalla_victoria(username="Jugador", puntaje=100):
             if evento.type == pygame.QUIT:
                 pygame.quit()
                 sys.exit()
+            elif evento.type == pygame.KEYDOWN and evento.key == pygame.K_ESCAPE:
+                ejecutando = False
             elif evento.type == pygame.MOUSEBUTTONDOWN:
                 # Botón "Continuar"
                 if boton_continuar.collidepoint(evento.pos):
@@ -85,11 +91,12 @@ def pantalla_victoria(username="Jugador", puntaje=100):
         # Fondo y título
         VENTANA.fill(COLOR_VICTORIA)
         texto = FUENTE_TEXTO.render("¡VICTORIA!", True, BLANCO)
-        VENTANA.blit(texto, (ANCHO // 2 - texto.get_width() // 2, 60))
+        VENTANA.blit(texto, (ANCHO // 2 - texto.get_width() // 2, int(ALTO * 0.1)))
 
-        # Animación
+        # Animación centrada
         if frames:
-            VENTANA.blit(frames[frame_actual], (ANCHO // 2 - 100, ALTO // 2 - 100))
+            img = frames[frame_actual]
+            VENTANA.blit(img, (ANCHO // 2 - img.get_width() // 2, ALTO // 2 - img.get_height() // 2))
             contador_frame += 1
             if contador_frame >= 10:
                 frame_actual = (frame_actual + 1) % len(frames)
@@ -128,11 +135,11 @@ def pantalla_derrota():
         sonido = pygame.mixer.Sound(ruta_sonido)
         sonido.play()
 
-    frames = cargar_animacion("Game", 4, 300, 150)
+    frames = cargar_animacion("Game", 4, int(ANCHO * 0.30), int(ALTO * 0.20))
     frame_actual = 0
     contador_frame = 0
     reloj = pygame.time.Clock()
-    boton_rect = pygame.Rect(ANCHO // 2 - 100, ALTO - 100, 200, 60)
+    boton_rect = pygame.Rect(ANCHO // 2 - int(ANCHO * 0.10), ALTO - int(ALTO * 0.18), int(ANCHO * 0.20), int(ALTO * 0.10))
 
     ejecutando = True
     while ejecutando:
@@ -140,6 +147,8 @@ def pantalla_derrota():
             if evento.type == pygame.QUIT:
                 pygame.quit()
                 sys.exit()
+            elif evento.type == pygame.KEYDOWN and evento.key == pygame.K_ESCAPE:
+                ejecutando = False
             elif evento.type == pygame.MOUSEBUTTONDOWN:
                 if boton_rect.collidepoint(evento.pos):
                     if sonido:
@@ -148,7 +157,8 @@ def pantalla_derrota():
 
         VENTANA.fill(COLOR_DERROTA)
         if frames:
-            VENTANA.blit(frames[frame_actual], (ANCHO // 2 - 150, ALTO // 2 - 100))
+            img = frames[frame_actual]
+            VENTANA.blit(img, (ANCHO // 2 - img.get_width() // 2, ALTO // 2 - img.get_height() // 2))
             contador_frame += 1
             if contador_frame >= 10:
                 frame_actual = (frame_actual + 1) % len(frames)
@@ -164,12 +174,3 @@ def pantalla_derrota():
 
         pygame.display.update()
         reloj.tick(30)
-
-
-# ================================
-# PRUEBA DIRECTA
-# ================================
-if __name__ == "__main__":
-    usuario = input("Nombre del jugador: ")
-    puntaje = int(input("Puntaje obtenido: "))
-    pantalla_victoria(usuario, puntaje)
