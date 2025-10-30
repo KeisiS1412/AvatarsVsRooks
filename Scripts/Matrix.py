@@ -30,6 +30,7 @@ class Matrix:
         self.res = res
         self.projectiles = []
         self.enemy_projectiles = []
+        self.onNextScene = None
 
         self.enemies = []
 
@@ -37,6 +38,12 @@ class Matrix:
         self.matrixImage = pygame.transform.rotozoom(self.matrixImage, 0, 0.61)
         self.cellSize = (self.matrixImage.get_width() // 7, self.matrixImage.get_height() // 11)
         self.imagePos = (self.res[0] // 2 - self.matrixImage.get_width() // 2, 0)
+
+        self.totalTime = 0  # ms transcurridos desde el inicio
+        self.sceneChanged = False
+        self.time_easy_to_normal = 60*1000
+        self.time_normal_to_hard =  60*1.25*1000
+        self.time_hard_to_next_scene = 60*1.25*1.25*1000
 
         self.coinCells = set()
         self.rect = pygame.Rect(
@@ -173,7 +180,20 @@ class Matrix:
             coin.draw(screen, coin.position)
 
     def update(self, dt):
-        # Spawneo por temporizadores globales (ms)
+        self.totalTime += dt
+
+        if self.totalTime >= self.time_hard_to_next_scene and not self.sceneChanged:
+            self.sceneChanged = True
+            print("[Matrix] Cambiando a nueva escena...")
+            if callable(self.onNextScene):
+                self.onNextScene()  
+        elif self.totalTime >= self.time_normal_to_hard and self.difficulty != "hard":
+            self.setDifficulty("hard")
+            print("[Matrix] Dificultad cambiada a HARD")
+        elif self.totalTime >= self.time_easy_to_normal and self.difficulty != "normal":
+            self.setDifficulty("normal")
+            print("[Matrix] Dificultad cambiada a NORMAL")
+
         for enemyType, interval in self.enemySpawnTimers.items():
             self.enemyAccumulators[enemyType] += dt
             if self.enemyAccumulators[enemyType] >= interval:
@@ -183,14 +203,13 @@ class Matrix:
         self.updateCoins(dt)
         dt_enemies = dt / 1000.0 if dt > 5 else dt
 
-        # Spawneo por config unificada (controla maxSim y timers independientes)
         for enemyType in list(self.enemyConfigs.keys()):
             self._maybe_spawn_enemy(dt_enemies, enemyType)
 
         self.updateEnemies(dt_enemies)
         self._update_enemy_projectiles(dt_enemies)
         self._melee_damage_step(dt_enemies)
-         
+        
         for tower in list(self.towers.values()):
             tower.update(dt)
             if isinstance(tower, FireTower) and tower.tick_shoot(dt):
@@ -257,6 +276,7 @@ class Matrix:
                 dead_cells.append(pos)
         for pos in dead_cells:
             self._kill_tower(pos[0], pos[1], self.towers.get(pos))
+
 
     def detectCoinClick(self, event):
         for coin in self.coins:
@@ -491,7 +511,16 @@ class Matrix:
 
     def setDifficulty(self, difficulty):
         self.difficulty = difficulty.lower()
-        self.enemySpawnTimers = self._applyDifficulty(self.enemySpawnTimersBase)
+        multiplier = 1.0
+        if self.difficulty == "easy":
+            multiplier = 1.25   
+        elif self.difficulty == "normal":
+            multiplier = 1.0
+        elif self.difficulty == "hard":
+            multiplier = 0.75   
+        # Ajusta timers
+        self.enemySpawnTimers = {k: int(v * multiplier) for k, v in self.enemySpawnTimersBase.items()}
+        print(f"[Matrix] Enemy spawn timers ajustados: {self.enemySpawnTimers}")
 
     def _applyDifficulty(self, baseTimers):
         difficultyMultipliers = {
@@ -555,3 +584,13 @@ class Matrix:
                     enemy.on_death(enemy)
                 except Exception:
                     pass
+
+    def get_remaining_time(self):
+        if self.totalTime < self.time_easy_to_normal:
+            remaining_ms = self.time_easy_to_normal - self.totalTime
+        elif self.totalTime < self.time_normal_to_hard:
+            remaining_ms = self.time_normal_to_hard - self.totalTime
+        else:
+            remaining_ms = self.time_hard_to_next_scene - self.totalTime
+
+        return max(0, remaining_ms // 1000)
