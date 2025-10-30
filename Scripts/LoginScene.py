@@ -58,8 +58,12 @@ class LoginScene(Scene):
         )
         self.passwordBox = TextBox(
             center, yStart + ySpacing * 1, self.buttonLength, self.buttonHeigth, font,
-            (255, 255, 255), (255, 255, 255), "Contraseña", (180, 180, 180)
+            (255, 255, 255), (255, 255, 255), "Contraseña", (180, 180, 180),
+            # ← tu TextBox ya soporta estos kwargs (los usamos en Register)
+            is_password=True,
+            right_padding=40
         )
+        
 
         # === Botones ===
         self.loginButton = Button(
@@ -91,6 +95,15 @@ class LoginScene(Scene):
             self.aboutButton,
             self.registerButton
         ]
+
+        self.eyePwd = ImageButton(
+            self.passwordBox.rect.right - 36,   # ajusta horizontal
+            self.passwordBox.rect.centery + 1, # ajusta vertical
+            "Assets/eye-closed.png",
+            0.08,
+            "Assets/eye-open.png"
+        )
+        self.buttonsList.append(self.eyePwd)
 
         # === "Botón" de texto: ¿Olvidaste tu contraseña? ===
         self.forgot_text = "¿Olvidaste tu contraseña?"
@@ -180,8 +193,6 @@ class LoginScene(Scene):
             user = self.usernameBox.getText()
             pwd = self.passwordBox.getText()
             self.login_message = "Iniciando sesión..."
-
-            # Flags de respaldo (Plan B) para cambiar de escena desde update()
             self._login_ok = False
             self._merged_user = None
 
@@ -225,6 +236,14 @@ class LoginScene(Scene):
                     self.login_message = "Error de red"
 
             threading.Thread(target=_do_login, daemon=True).start()
+
+        if self.eyePwd.wasClicked(event):
+            if hasattr(self.passwordBox, "set_show_password"):
+                self.passwordBox.set_show_password(self.eyePwd.clicked)
+            else:
+                    # fallback si no añadiste el método helper:
+                self.passwordBox.showPassword = self.eyePwd.clicked
+            # Flags de respaldo (Plan B) para cambiar de escena desde update()
 
         # 4) Otros botones
         if self.googleButton.wasClicked(event):

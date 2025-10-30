@@ -1,7 +1,7 @@
 import pygame
-from SceneManager import SceneManager
 from LoginScene import LoginScene
 from PersonalizationScene import PersonalizationScene
+from SceneManager import SceneManager
 
 """Archivo principal del programa. Gestiona la ventana, escenas y ciclo principal del juego."""
 
@@ -11,7 +11,7 @@ BASE_W, BASE_H = 1920, 1080  # Resolución base
 
 info = pygame.display.Info()
 win_w, win_h = info.current_w, info.current_h
-screen = pygame.display.set_mode((win_w, win_h))
+screen = pygame.display.set_mode((win_w, win_h), pygame.FULLSCREEN)
 pygame.display.set_caption("Login")
 
 clock = pygame.time.Clock()
