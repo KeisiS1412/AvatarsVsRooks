@@ -21,10 +21,6 @@ class RegisterScene(Scene):
     """
 
     def __init__(self, font, res, switchSceneCallback):
-        self.switchScene = switchSceneCallback
-        self.register_message = ""
-
-
         screenW, screenH = res
 
         # === Medidas base ===
@@ -46,6 +42,11 @@ class RegisterScene(Scene):
         leftBlockX = sideMargin + shiftRightLeftCol
         rightBlockX = screenW - sideMargin - totalRowWidth + shiftRightRightCol
 
+        self.buttonsList = []
+
+        self.switchScene = switchSceneCallback
+        self.register_message = ""
+        
         # Fuente para mensajes de error
         self.errorFont = pygame.font.Font(None, 24)
         self.errorColor = (218, 41, 28)  # gris (puedes cambiar a DA291C si lo prefieres)
@@ -88,9 +89,15 @@ class RegisterScene(Scene):
                     maxVisible=6, placeholder="Selecciona tu país"
                 )
             placeholder_color = (180, 180, 180)
+
+            is_pwd = label in ("Contraseña", "Confirmar contraseña")
+
             return TextBox(
                 x, y, colWidth, self.fieldHeight, font,
-                (255, 255, 255), (255, 255, 255), label, placeholder_color
+                (255, 255, 255), (255, 255, 255), label, placeholder_color,
+                # ← Estos kwargs existen en tu TextBox (ya lo agregaste):
+                is_password=is_pwd,
+                right_padding=40
             )
 
         self.fields = []
@@ -132,6 +139,17 @@ class RegisterScene(Scene):
         self.passwordError = ""
         self.confirmError = ""
 
+        self.eyePwd = ImageButton(
+            self.passwordBox.rect.right - 36, self.passwordBox.rect.centery + 1,
+            "Assets/eye-closed.png", 0.08, "Assets/eye-open.png"
+        )
+        self.eyeConfirm = ImageButton(
+            self.confirmBox.rect.right - 36, self.confirmBox.rect.centery + 1,
+            "Assets/eye-closed.png", 0.08, "Assets/eye-open.png"
+        )
+
+        # Añade a la lista de botones clicables
+        self.buttonsList.extend([self.eyePwd, self.eyeConfirm])
         # =========================
         # COLUMNA DERECHA (Pago + FaceID + TyC + Botones)
         # =========================
@@ -209,10 +227,10 @@ class RegisterScene(Scene):
         self.helpButton = ImageButton(50, 40, "Assets/helpButton.png", 0.15)
         self.aboutButton = ImageButton(140, 40, "Assets/aboutButton.png", 0.15)
 
-        self.buttonsList = [
+        self.buttonsList.extend([
             self.registerButton, self.loginButton, self.faceRecognitionButton,
             self.helpButton, self.aboutButton, self.checkBox
-        ]
+        ])
 
         # Scroll deshabilitado
         # self.scrollY = 0
@@ -311,7 +329,7 @@ class RegisterScene(Scene):
                         "perfil": perfil,
                         "cuenta": cuenta,
                         "pago":   pago,
-                        "acepto_tyc": False if self.checkBox.clicked else True
+                        "acepto_tyc": True if self.checkBox.clicked else False
                     }
 
                     self.register_message = "Guardando..."
@@ -347,6 +365,14 @@ class RegisterScene(Scene):
                     self.switchScene("login")
                 elif button == self.checkBox and self.checkBox.clicked:
                     self.openPdf("Assets\TerminosCondicionesTecnolators.pdf")
+                
+                elif button == self.eyePwd:
+                    # Mostrar/ocultar según el estado del botón (ImageButton.clicked)
+                    self.passwordBox.set_show_password(self.eyePwd.clicked)
+
+                elif button == self.eyeConfirm:
+                    self.confirmBox.set_show_password(self.eyeConfirm.clicked)
+
 
                 if self.termsAndConditions.wasClicked(event):
                     self.openPdf("Assets\TerminosCondicionesTecnolators.pdf")
