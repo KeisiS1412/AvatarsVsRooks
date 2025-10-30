@@ -679,6 +679,13 @@ class Matrix:
     def onEnemyReachedTop(self, enemy):
         if hasattr(self, "onGameOver"):
             self.onGameOver()
+        else:
+            try:
+                from pantalla import pantalla_derrota
+                pantalla_derrota(username="Jugador")
+            except Exception as e:
+                print(f"[Matrix] Error al mostrar pantalla de derrota: {e}")
+
 
     def spawnEnemy(self, enemyType):
         last_row = self.ROWS - 1
