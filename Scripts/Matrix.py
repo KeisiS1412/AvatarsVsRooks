@@ -250,6 +250,51 @@ class Matrix:
                                     e.on_death(e)
                         hit = True
                         break
+            elif isinstance(p, Rock):
+                for e in self.enemies:
+                    if not getattr(e, "alive", True):
+                        continue
+                    if p.rect.colliderect(e.rect) and isinstance(e, (Archer, Squire, Lumberjack, Cannibal)):
+                        if hasattr(e, "take_damage") and callable(e.take_damage):
+                            e.take_damage(4)
+                        else:
+                            e.hp = max(0, getattr(e, "hp", 0) - 4)
+                            if e.hp == 0:
+                                e.alive = False
+                                if callable(getattr(e, "on_death", None)):
+                                    e.on_death(e)
+                        hit = True
+                        break
+            elif isinstance(p, Fireball):
+                for e in self.enemies:
+                    if not getattr(e, "alive", True):
+                        continue
+                    if p.rect.colliderect(e.rect) and isinstance(e, (Archer, Squire, Lumberjack, Cannibal)):
+                        if hasattr(e, "take_damage") and callable(e.take_damage):
+                            e.take_damage(10)
+                        else:
+                            e.hp = max(0, getattr(e, "hp", 0) - 10)
+                            if e.hp == 0:
+                                e.alive = False
+                                if callable(getattr(e, "on_death", None)):
+                                    e.on_death(e)
+                        hit = True
+                        break
+            elif isinstance(p, WaterDrop):
+                for e in self.enemies:
+                    if not getattr(e, "alive", True):
+                        continue
+                    if p.rect.colliderect(e.rect) and isinstance(e, (Archer, Squire, Lumberjack, Cannibal)):
+                        if hasattr(e, "take_damage") and callable(e.take_damage):
+                            e.take_damage(13)
+                        else:
+                            e.hp = max(0, getattr(e, "hp", 0) - 13)
+                            if e.hp == 0:
+                                e.alive = False
+                                if callable(getattr(e, "on_death", None)):
+                                    e.on_death(e)
+                        hit = True
+                        break
 
             # Mantener si no chocó y no salió del mapa
             if (not hit) and (p.rect.top < bottom_limit):
