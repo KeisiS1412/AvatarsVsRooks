@@ -233,15 +233,16 @@ class Matrix:
 
         dead_cells = []
         for pos, tower in list(self.towers.items()):
-            if hasattr(tower, "alive") and not tower.alive:
+            hp = getattr(tower, "hp", None)
+            is_alive = getattr(tower, "is_alive", True)
+            if (hp is not None and hp <= 0) or not is_alive:
                 dead_cells.append(pos)
                 continue
             if hasattr(tower, "update"):
                 tower.update(dt)
-            # tus disparos (tick_shoot) ya están abajo; sólo no dispares si murió
+
         for pos in dead_cells:
-            del self.towers[pos]
-            self.matrix[pos[0]][pos[1]] = 0
+            self._kill_tower(pos[0], pos[1], self.towers.get(pos))
 
     def detectCoinClick(self, event):
         for coin in self.coins:
@@ -427,23 +428,71 @@ class Matrix:
 
     def _update_enemy_projectiles(self, dt):
         alive = []
+        top_y = self.imagePos[1]
+        bottom_y = self.imagePos[1] + self.ROWS * self.cellSize[1]
+
         for a in self.enemy_projectiles:
             a.update(dt)
-            # Desaparece si llegó a fila 0 (o pasó el borde superior)
-            if a.rect.bottom >= self.imagePos[1]:
-                # ¿está por encima del centro de la fila 0?
-                # Más simple: si top < borde superior, eliminar
-                if a.rect.top <= self.imagePos[1]:
-                    continue
+
+            # 1) fuera de la matriz por arriba => descartar
+            if a.rect.bottom < top_y:
+                continue
+            # 2) fuera (por si acaso) por abajo => mantener no aplica aquí, pero lo dejamos claro
+            if a.rect.top > bottom_y:
+                continue
+
+            # 3) detectar celda golpeada en el frente de la flecha (punta)
+            hit = False
+            # tomamos el punto líder: el borde superior centrado
+            cx = a.rect.centerx
+            cy = a.rect.top
+
+            cell = self.calculateCell((cx, cy))
+            if cell is not None:
+                row, col = cell
+                if (row, col) in self.towers:
+                    print(f"[ARROW] impact at cell {(row, col)}")
+                    dmg = getattr(a, "damage", 2)
+                    self.damage_tower(row, col, dmg)
+                    hit = True
+
+            # 4) si no pegó, la mantenemos viva
+            if not hit:
                 alive.append(a)
+            # si pegó, NO la reinsertamos (desaparece en el impacto)
+
         self.enemy_projectiles = alive
     
     def damage_tower(self, row, col, dmg):
         t = self.towers.get((row, col))
         if not t:
             return
+
+        before = getattr(t, "hp", None)
+
         if hasattr(t, "take_damage"):
-            t.take_damage(dmg)
-        if hasattr(t, "alive") and not t.alive:
-            del self.towers[(row, col)]
-            self.matrix[row][col] = 0
+            t.take_damage(int(dmg))
+        else:
+            # fallback por si alguna torre vieja no tiene take_damage
+            if before is not None:
+                t.hp = max(0, before - int(dmg))
+
+        after = getattr(t, "hp", None)
+        print(f"[HIT] tower {(row, col)} hp {before} -> {after} (dmg={dmg})")
+
+        # Elimina inmediatamente si ya no tiene vida
+        if (after is not None and after <= 0) or not getattr(t, "is_alive", True):
+            self._kill_tower(row, col, t)
+
+    def _kill_tower(self, row, col, tower):
+        print(f"[KILL] removing tower at {(row, col)}")
+        try:
+            tower.is_alive = False
+        except Exception:
+            pass
+        try:
+            tower.kill()  # por si está en grupos de pygame
+        except Exception:
+            pass
+        self.towers.pop((row, col), None)
+        self.matrix[row][col] = 0

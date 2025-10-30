@@ -11,6 +11,7 @@ class Arrow(pygame.sprite.Sprite):
         self.vx = 0.0
         self.vy = -abs(speed_px_s)  
         self.alive = True
+        self.damage = 2
 
     def set_center(self, cx, cy):
         self.rect = self.image.get_rect(center=(cx, cy))

@@ -6,6 +6,7 @@ class BaseTower:
         self.max_hp = int(hp)
         self.hp = int(hp)
         self.alive = True
+        self.is_alive = True
         self.on_destroy = on_destroy  # callback opcional (Matrix la puede usar)
         # info de grid (opcional pero útil)
         self.row = None
@@ -27,14 +28,15 @@ class BaseTower:
 
     # --- vida / daño ---
     def take_damage(self, amount: int):
-        if not self.alive:
-            return 0
+        if not self.is_alive:
+            return
         self.hp = max(0, self.hp - int(amount))
         if self.hp == 0:
-            self.alive = False
-            if callable(self.on_destroy):
-                self.on_destroy(self)
-        return self.hp
+            self.is_alive = False
+            try:
+                self.kill()   # por si está en grupos de sprites
+            except Exception:
+                pass
 
     def heal(self, amount: int):
         if not self.alive:
