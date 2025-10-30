@@ -21,27 +21,27 @@ class TextBox:
         self.border_radius = border_radius
         self.clearsOnClick = clearsOnClick
         self.isInvalid = False
-        self.errorBorderColor = (255, 0, 0)
+        self.errorBorderColor = (180, 180, 180)  # Color del borde en caso de error
         self.isPassword = False
         self.showPassword = False
 
     def draw(self, screen, deltaTime=0, scrollOffset=0):  # Dibuja la caja y el texto
         adjRect = self.rect.move(0, -scrollOffset)
         pygame.draw.rect(screen, self.currentColor, adjRect, border_radius=self.border_radius)
-        borderColor = self.errorBorderColor if self.isInvalid else (0, 0, 0)
+        borderColor = self.errorBorderColor if self.isInvalid else (180, 180, 180)
         pygame.draw.rect(screen, borderColor, adjRect, width=2, border_radius=self.border_radius)
 
         padding = 10
         maxTextWidth = adjRect.width - padding * 2
         displayText = self.text if not (self.isPassword and not self.showPassword) else "•" * len(self.text)
-        textColor = (0, 0, 0) if self.text != self.placeholder else (150, 150, 150)  # gris para placeholder
+        textColor = (180, 180, 180) if self.text != self.placeholder else (180, 180, 180)  # gris para placeholder
 
         textToRender = displayText
         while self.font.size(textToRender)[0] > maxTextWidth and len(textToRender) > 0:
             textToRender = textToRender[1:]
 
         visibleSurface = self.font.render(textToRender, True, textColor)
-        screen.blit(visibleSurface, (adjRect.x + padding, adjRect.y + padding))
+        screen.blit(visibleSurface, (adjRect.x + 20, adjRect.y + padding + 5 + self.content_offset_y))
 
         if self.isActive:
             self.cursorTimer += deltaTime
@@ -49,10 +49,10 @@ class TextBox:
                 self.cursorVisible = not self.cursorVisible
                 self.cursorTimer = 0
             if self.cursorVisible:
-                cursorX = adjRect.x + padding + visibleSurface.get_width()
-                cursorY = adjRect.y + padding
+                cursorX = adjRect.x + 20 + visibleSurface.get_width()
+                cursorY = adjRect.y + padding + 5 + self.content_offset_y
                 cursorHeight = visibleSurface.get_height()
-                pygame.draw.line(screen, (0, 0, 0), (cursorX, cursorY), (cursorX, cursorY + cursorHeight), 2)
+                pygame.draw.line(screen, (180, 180, 180), (cursorX, cursorY), (cursorX, cursorY + cursorHeight), 2)
 
     def handleEvent(self, event, scrollOffset=0):  # Maneja clics y escritura del usuario
         adjRect = self.rect.move(0, -scrollOffset)

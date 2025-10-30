@@ -1,0 +1,26 @@
+{
+  "compilerOptions": {
+    // Node backend
+    "target": "ES2020",
+    "module": "CommonJS",
+    "moduleResolution": "node",
+    "lib": ["ES2020"],
+    "types": ["node"],
+
+    // Estructura
+    "rootDir": "src",
+    "outDir": "dist",
+
+    // Calidad
+    "strict": true,
+    "skipLibCheck": true,
+
+    // Importaciones CJS/ESM amistosas
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+
+    // Útiles
+    "resolveJsonModule": true
+  },
+  "include": ["src"]
+}

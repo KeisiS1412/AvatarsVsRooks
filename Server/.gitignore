@@ -1,0 +1,13 @@
+# Dependencias de Node.js
+node_modules/
+
+# Archivos compilados de TypeScript
+dist/
+
+# Configuración y claves locales
+.env
+secret.key
+
+# Archivos temporales del sistema
+.DS_Store
+Thumbs.db
