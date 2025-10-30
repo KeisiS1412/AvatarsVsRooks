@@ -3,6 +3,7 @@ import threading
 from Scene import Scene
 from Buttons import Button
 from TextBoxes import TextBox
+import base64, mimetypes
 from ImageButtons import ImageButton
 from DropdownButton import DropdownButton
 from SimpleTexts import SimpleText
@@ -345,13 +346,25 @@ class RegisterScene(Scene):
                         "expiracion":        self._read_value(self.fields[12]),
                     }
 
+                    avatar_b64 = None
+                    avatar_mime = None
+                    try:
+                        if self.avatar_path and os.path.exists(self.avatar_path):
+                            with open(self.avatar_path, "rb") as f:
+                                raw = f.read()
+                            avatar_b64 = base64.b64encode(raw).decode("ascii")
+                            avatar_mime = mimetypes.guess_type(self.avatar_path)[0] or "application/octet-stream"
+                    except Exception:
+                        avatar_b64 = None
+                        avatar_mime = None
+
                     payload = {
                         "perfil": perfil,
                         "cuenta": cuenta,
                         "pago":   pago,
-                        "acepto_tyc": True if self.checkBox.clicked else False,
-                        # Si deseas enviar el avatar al backend en otra fase:
-                        # "avatar_path": self.avatar_path
+                        "acepto_tyc": False if self.checkBox.clicked else True,
+                        "avatar_b64": avatar_b64,       # <--- NUEVO
+                        "avatar_mime": avatar_mime   
                     }
 
                     self.register_message = "Guardando..."

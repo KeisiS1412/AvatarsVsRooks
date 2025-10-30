@@ -1,11 +1,15 @@
 import 'dotenv/config';
 import express from 'express';
 import argon2 from 'argon2';
+import fs from 'fs';
+import path from 'path';
+import { encryptBytes } from './crypto';
 import crypto from 'crypto';
 import { loadOrCreateKey, encryptJson, decryptJson } from './crypto';
 import { readEncryptedFile, writeEncryptedFile } from './storage';
 import { ensureDb, isAlnumMax8, isEmailBasic, normalize, nowIso, uuid } from './util';
 import { DBShape, RegisterReq, UserRecord } from './types';
+
 
 // === NUEVO ===
 import { getPublicUserByUsername } from './storage'; // para el endpoint de perfil público
@@ -13,7 +17,7 @@ import { getPublicUserByUsername } from './storage'; // para el endpoint de perf
 
 async function main() {
   const app = express();
-  app.use(express.json({ limit: '1mb' }));
+  app.use(express.json({ limit: '20mb' }));
 
   const key = await loadOrCreateKey();
 
@@ -55,6 +59,32 @@ async function main() {
         createdAt: nowIso(),
         updatedAt: nowIso()
       };
+
+      // --- NUEVO: guardar avatar cifrado si llegó en base64 ---
+      try {
+        const { avatar_b64, avatar_mime } = body as { avatar_b64?: string; avatar_mime?: string };
+        if (avatar_b64) {
+          const raw = Buffer.from(avatar_b64, "base64");           // bytes de la imagen
+          const encBlob = await encryptBytes(new Uint8Array(raw), key);
+
+          const dir = path.resolve("data", "avatars");
+          fs.mkdirSync(dir, { recursive: true });
+
+          const avatarPath = path.join(dir, `${user.id}.bin.enc`);
+          fs.writeFileSync(avatarPath, JSON.stringify(encBlob), "utf8");
+
+          user.avatar = {
+            path: "./data/avatars/" + `${user.id}.bin.enc`,
+            mime: avatar_mime || "application/octet-stream",
+          };
+        } else {
+          user.avatar = null;
+        }
+      } catch (e) {
+        console.error("Error cifrando/guardando avatar:", e);
+        user.avatar = null; // no tumbar el registro si falla el avatar
+      }
+
 
       db.usuarios.push(user);
 
