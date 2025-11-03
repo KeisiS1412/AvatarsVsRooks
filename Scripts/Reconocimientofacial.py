@@ -217,5 +217,5 @@ class ReconocimientoFacialLBPH:
         pygame.quit()
 
 if __name__ == "__main__":  # [FIX]
-    app = ReconocimientoFacialLBPH(usuario_actual="el_mas_pro")  # [FIX] puedes poner aquí el usuario activo
+    app = ReconocimientoFacialLBPH(usuario_actual="lll")  # [FIX] puedes poner aquí el usuario activo
     app.menu()

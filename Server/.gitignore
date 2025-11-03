@@ -11,3 +11,6 @@ secret.key
 # Archivos temporales del sistema
 .DS_Store
 Thumbs.db
+__pycache__/
+*.pyc
+*.pyo

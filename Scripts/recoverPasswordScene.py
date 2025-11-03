@@ -98,9 +98,9 @@ class recoverPasswordScene(Scene):
             self.enterEmail = True
             self.switchScene("login")
         if self.helpButton.wasClicked(event):
-            print("Help clicked")
+            self.switchScene("Help")
         if self.aboutButton.wasClicked(event):
-            print("About clicked")
+            self.switchScene("About")
 
     def update(self, deltaTime):  # Actualiza los botones según la posición del mouse
         mousePos = pygame.mouse.get_pos()

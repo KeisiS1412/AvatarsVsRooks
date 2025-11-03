@@ -1,6 +1,7 @@
 import pygame
 import threading
 from Scene import Scene
+from CalendarTextBox import CalendarTextBox
 from Buttons import Button
 from TextBoxes import TextBox
 import base64, mimetypes
@@ -111,6 +112,11 @@ class RegisterScene(Scene):
                     x, y, colWidth, self.fieldHeight, font,
                     countryList, (180, 180, 180), (255, 255, 255), (255, 255, 255),
                     maxVisible=6, placeholder="Selecciona tu país"
+                )
+            if label == "Fecha de nacimiento":
+                return CalendarTextBox(
+                    x, y, colWidth, self.fieldHeight, font,
+                    (255, 255, 255), (255, 255, 255), label
                 )
             placeholder_color = (180, 180, 180)
             is_pwd = label in ("Contraseña", "Confirmar contraseña")
@@ -401,6 +407,10 @@ class RegisterScene(Scene):
 
                 if self.termsAndConditions.wasClicked(event):
                     self.openPdf("Assets/TerminosCondicionesTecnolators.pdf")
+                if self.helpButton.wasClicked(event):
+                    self.switchScene("Help")
+                if self.aboutButton.wasClicked(event):
+                    self.switchScene("About")
 
     def update(self, deltaTime):
         mousePos = pygame.mouse.get_pos()
@@ -453,6 +463,10 @@ class RegisterScene(Scene):
         for box in self.fields:
             if isinstance(box, DropdownButton):
                 box.draw(screen, deltaTime=0)
+
+        for box in self.fields:
+            if isinstance(box, CalendarTextBox):
+                box.draw_overlay(screen, scrollOffset=0)
 
         if self.passwordError:
             txt = self.errorFont.render(self.passwordError, True, self.errorColor)
