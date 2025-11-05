@@ -272,8 +272,6 @@ class PersonalizationScene(Scene):
 
         self.avatar_path = self.user.get("foto", None)
 
-
-
     
     def EnsureSpotify(self): # Setup Spotify client
         """Inicializa el cliente de Spotify si hace falta."""

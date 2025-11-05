@@ -399,14 +399,14 @@ class RegisterScene(Scene):
                 elif button == self.loginButton:
                     self.switchScene("login")
                 elif button == self.checkBox and self.checkBox.clicked:
-                    self.openPdf("Assets/TerminosCondicionesTecnolators.pdf")
+                    self.openPdf("Assets\TerminosCondicionesTecnolators.pdf")
                 elif button == self.eyePwd:
                     self.passwordBox.set_show_password(self.eyePwd.clicked)
                 elif button == self.eyeConfirm:
                     self.confirmBox.set_show_password(self.eyeConfirm.clicked)
 
                 if self.termsAndConditions.wasClicked(event):
-                    self.openPdf("Assets/TerminosCondicionesTecnolators.pdf")
+                    self.openPdf("Assets\TerminosCondicionesTecnolators.pdf")
                 if self.helpButton.wasClicked(event):
                     self.switchScene("Help")
                 if self.aboutButton.wasClicked(event):
