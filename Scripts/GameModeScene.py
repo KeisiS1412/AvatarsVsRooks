@@ -3,10 +3,11 @@ from Scene import Scene
 from Buttons import Button
 
 class GameModeScene(Scene):
-    def __init__(self, font, res, switchSceneCallback):
+    def __init__(self, font, res, switchSceneCallback, mananger):
         self.switchScene = switchSceneCallback
         self.font = font
         self.res = res
+        self.manager = mananger
 
         screenW, screenH = res
         self.bg_color = (218, 41, 28)  # Rojo fondo
@@ -16,7 +17,7 @@ class GameModeScene(Scene):
         spacing = 100  # espacio entre botones
         y_center = screenH // 2
 
-        labels = ["Fácil", "Medio", "Difícil"]
+        labels = ["easy", "medium", "hard"]
         self.buttons = []
 
         # Ancho total ocupado por todos los botones + espacios
@@ -38,8 +39,15 @@ class GameModeScene(Scene):
     def handleEvent(self, event):
         for button in self.buttons:
             if button.wasClicked(event):
-                print(f"Seleccionado modo: {button.text}")
-                # Luego podrías hacer: self.switchScene("nombreDelModo")
+                if button.text == "easy":
+                    self.manager.scenes["game"].setDifficulty("easy")
+                    self.switchScene("game")
+                elif button.text == "medium":
+                    self.manager.scenes["game"].setDifficulty("medium")
+                    self.switchScene("game")
+                elif button.text == "hard":
+                    self.manager.scenes["game"].setDifficulty("hard")
+                    self.switchScene("game")
 
     def update(self, deltaTime):
         mousePos = pygame.mouse.get_pos()

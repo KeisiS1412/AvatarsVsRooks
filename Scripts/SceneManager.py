@@ -21,14 +21,14 @@ class SceneManager:
             "register": RegisterScene(font, res, self.changeScene),
             "About": CreditsScene(font, res, self.changeScene),
             "Help": HelpScene(font, res, self.changeScene),
-            "game_mode": GameModeScene(font, res, self.changeScene), 
+            "game_mode": GameModeScene(font, res, self.changeScene, self), 
             "recoverPassword" : recoverPasswordScene(font, res, self.changeScene),
             "personalization": PersonalizationScene(font, res, self.changeScene),
-            "Game": GameScene(font, res, self.changeScene)
+            "game": GameScene(font, res, self.changeScene)
         }
 
         # Escena inicial
-        self.changeScene("game_mode")
+        self.changeScene("login")
 
     def changeScene(self, name):
         self.currentScene = self.scenes[name]
