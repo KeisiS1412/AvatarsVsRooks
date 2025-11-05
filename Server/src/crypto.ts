@@ -51,3 +51,22 @@ export async function decryptJson(blob: EncBlob, key: Uint8Array): Promise<any> 
   );
   return JSON.parse(Buffer.from(pt).toString('utf8'));
 }
+// --- NUEVO: cifrar bytes arbitrarios (ej. imagen) ---
+export async function encryptBytes(bytes: Uint8Array, key: Uint8Array) {
+  await sodium.ready;
+  const nonce = sodium.randombytes_buf(sodium.crypto_aead_xchacha20poly1305_ietf_NPUBBYTES);
+  const ct = sodium.crypto_aead_xchacha20poly1305_ietf_encrypt(bytes, null, null, nonce, key);
+  return {
+    nonce_b64: sodium.to_base64(nonce, sodium.base64_variants.ORIGINAL),
+    ct_b64: sodium.to_base64(ct, sodium.base64_variants.ORIGINAL),
+  };
+}
+
+// --- NUEVO: descifrar bytes (por si luego quieres servir/mostrar el avatar) ---
+export async function decryptBytes(blob: { nonce_b64: string; ct_b64: string }, key: Uint8Array) {
+  await sodium.ready;
+  const nonce = sodium.from_base64(blob.nonce_b64, sodium.base64_variants.ORIGINAL);
+  const ct = sodium.from_base64(blob.ct_b64, sodium.base64_variants.ORIGINAL);
+  const plain = sodium.crypto_aead_xchacha20poly1305_ietf_decrypt(null, ct, null, nonce, key);
+  return plain; // Uint8Array
+}
