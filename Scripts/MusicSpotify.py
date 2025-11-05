@@ -37,6 +37,18 @@ def play_track(nombre, artista):
     name = track["name"]
     artist_names = ", ".join(a["name"] for a in track["artists"])
 
+    # NUEVO: obtener popularidad
+    popularidad = track["popularity"]
+
+    # NUEVO: obtener tempo usando audio_features
+    audio_features = sp.audio_features([track["id"]])[0]
+    tempo = audio_features["tempo"] if audio_features else None
+
+    if tempo:
+        print(f" Tempo: {tempo:.2f} BPM\n")
+    else:
+        print(" Tempo no disponible.\n")
+
     device_id = get_active_device()
     if not device_id:
         return
@@ -59,6 +71,35 @@ def skip_next():
 def skip_previous():
     sp.previous_track()
     print("Canción anterior.")
+
+# ==============================
+# NUEVO: OBTENER DATOS DE LA CANCIÓN ACTUAL
+# ==============================
+def obtener_datos_cancion_actual():
+    """
+    Devuelve el tempo (BPM) y la popularidad de la canción que se está reproduciendo actualmente.
+    Si no hay una canción activa, devuelve (None, None).
+    """
+    current = sp.current_playback()
+    if not current or not current.get("item"):
+        print(" No hay ninguna canción reproduciéndose.")
+        return None, None
+
+    track = current["item"]
+    track_id = track["id"]
+    nombre = track["name"]
+    artistas = ", ".join(a["name"] for a in track["artists"])
+    popularidad = track["popularity"]
+
+    audio_features = sp.audio_features([track_id])[0]
+    tempo = audio_features["tempo"] if audio_features else None
+
+    print(f"\n Canción actual: {nombre} — {artistas}")
+    print(f" Popularidad: {popularidad}/100")
+    print(f" Tempo: {tempo:.2f} BPM\n")
+
+    return tempo, popularidad
+
 
 if __name__ == "__main__":
     print("Control remoto de Spotify Premium")

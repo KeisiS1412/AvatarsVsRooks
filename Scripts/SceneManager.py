@@ -5,6 +5,7 @@ from HelpScene import HelpScene
 from GameModeScene import GameModeScene
 from recoverPasswordScene import recoverPasswordScene
 from PersonalizationScene import PersonalizationScene
+from GameScene import GameScene
 
 class SceneManager:
     """Gestiona las diferentes escenas del juego y controla la escena activa."""
@@ -22,7 +23,8 @@ class SceneManager:
             "Help": HelpScene(font, res, self.changeScene),
             "game_mode": GameModeScene(font, res, self.changeScene), 
             "recoverPassword" : recoverPasswordScene(font, res, self.changeScene),
-            "personalization": PersonalizationScene(font, res, self.changeScene)
+            "personalization": PersonalizationScene(font, res, self.changeScene),
+            "Game": GameScene(font, res, self.changeScene)
         }
 
         # Escena inicial
