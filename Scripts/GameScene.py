@@ -10,13 +10,11 @@ class GameScene(Scene):
         self.switchScene = switchSceneCallback
         self.res = res
         self.font = font
-
         self.matrix = Matrix(self.res, "easy")
         self.matrix.onGameOver = self.handleGameOver
         self.matrix.onNextScene = lambda: self.switchScene("next")
         self.coins = 0
         self.selectedRook = None
-
         self.shop = ShopPanel(self.res)
 
     def draw(self, screen):
@@ -85,3 +83,7 @@ class GameScene(Scene):
 
     def handleGameOver(self):
         self.switchScene("login")
+
+    def setDifficulty(self, difficulty):
+        self.difficulty = difficulty
+        self.matrix = Matrix(self.res, difficulty)
