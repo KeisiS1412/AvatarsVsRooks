@@ -28,7 +28,7 @@ class SceneManager:
         }
 
         # Escena inicial
-        self.changeScene("login")
+        self.changeScene("game")
 
     def changeScene(self, name):
         self.currentScene = self.scenes[name]
