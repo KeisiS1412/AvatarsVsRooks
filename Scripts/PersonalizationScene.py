@@ -371,40 +371,20 @@ class PersonalizationScene(Scene):
 
     # Manejar eventos de entrada
     def handleEvent(self, event):
-        screen = pygame.display.get_surface()
-        if screen and event.type in (pygame.MOUSEBUTTONDOWN, pygame.MOUSEBUTTONUP, pygame.MOUSEMOTION):
-            tw, th = screen.get_size()
-            scale = min(tw / BASE_W, th / BASE_H)
-            offs_x = (tw - BASE_W * scale) / 2
-            offs_y = (th - BASE_H * scale) / 2
-
-            ed = event.dict.copy()
-            if 'pos' in ed:
-                px, py = ed['pos']
-                sx = (px - offs_x) / scale
-                sy = (py - offs_y) / scale
-                ed['pos'] = (int(sx), int(sy))
-            if event.type == pygame.MOUSEMOTION and 'rel' in ed:
-                rx, ry = ed['rel']
-                ed['rel'] = (rx / scale, ry / scale)
-
-            mapped = pygame.event.Event(event.type, ed)
-        else:
-            mapped = event
-
-        self.musicBox.handleEvent(mapped)
-        self.themeDrop.handleEvent(mapped)
-        self.hobbyDrop.handleEvent(mapped)
-        self.colorWheel.handleEvent(mapped)
+        # ✅ Los eventos ya vienen mapeados desde main.py
+        self.musicBox.handleEvent(event)
+        self.themeDrop.handleEvent(event)
+        self.hobbyDrop.handleEvent(event)
+        self.colorWheel.handleEvent(event)
         self.colorHexField.set_content(self.colorWheel.hex())
 
-        if self.searchBtn.wasClicked(mapped):
+        if self.searchBtn.wasClicked(event):
             self.PlayMusicFromTextbox()
 
-        if self.changePhotoBtn.wasClicked(mapped):
+        if self.changePhotoBtn.wasClicked(event):
             pass
 
-        if self.muteBtn.wasClicked(mapped):
+        if self.muteBtn.wasClicked(event):
             if not self.music_muted:
                 self.SpotifyPause()
                 self.music_muted = True
@@ -415,8 +395,8 @@ class PersonalizationScene(Scene):
                 self.muteBtn.text = "Mute Music"
 
         if hasattr(self.returnBtn, "handle"):
-            self.returnBtn.handle(mapped)
-        elif hasattr(self.returnBtn, "wasClicked") and self.returnBtn.wasClicked(mapped):
+            self.returnBtn.handle(event)
+        elif hasattr(self.returnBtn, "wasClicked") and self.returnBtn.wasClicked(event):
             if self.switchScene:
                 self.switchScene("main")
 
@@ -435,46 +415,36 @@ class PersonalizationScene(Scene):
 
     # Dibujar la escena
     def draw(self, s):
-        virt = pygame.Surface((BASE_W, BASE_H)).convert()
-        virt.fill(self.theme_bg)
+        # ✅ main.py ya escala/centra el canvas, dibuja directamente
+        s.fill(self.theme_bg)
 
-        virt.blit(self.title_font_big.render("Personalization", True, self.theme_fg), (350, 80))
-        virt.blit(self.title_font_big.render("Profile", True, self.theme_fg), (BASE_W//2 + 325, 80))
+        s.blit(self.title_font_big.render("Personalization", True, self.theme_fg), (350, 80))
+        s.blit(self.title_font_big.render("Profile", True, self.theme_fg), (BASE_W//2 + 325, 80))
 
-        self.returnBtn.draw(virt)
+        self.returnBtn.draw(s)
 
-        self.f_nombre.draw(virt)
-        self.f_ap1.draw(virt)
-        self.f_ap2.draw(virt)
-        self.f_usuario.draw(virt)
-        self.f_email.draw(virt)
-        self.f_tel.draw(virt)
-        self.hobbyDrop.draw(virt)
+        self.f_nombre.draw(s)
+        self.f_ap1.draw(s)
+        self.f_ap2.draw(s)
+        self.f_usuario.draw(s)
+        self.f_email.draw(s)
+        self.f_tel.draw(s)
+        self.hobbyDrop.draw(s)
 
-        self.musicBox.draw(virt, deltaTime=0)
+        self.musicBox.draw(s, deltaTime=0)
         title_font = MakeTitleFont()
         t = title_font.render("Music", True, self.theme_fg)
-        virt.blit(t, (self.musicBox.rect.x + 20, self.musicBox.rect.y - t.get_height() + 45))
+        s.blit(t, (self.musicBox.rect.x + 20, self.musicBox.rect.y - t.get_height() + 45))
         
-        self.muteBtn.draw(virt)
-        self.searchBtn.draw(virt)
+        self.muteBtn.draw(s)
+        self.searchBtn.draw(s)
 
-        self.themeDrop.draw(virt)
-        self.colorHexField.draw(virt)
-        self.colorWheel.draw(virt)
+        self.themeDrop.draw(s)
+        self.colorHexField.draw(s)
+        self.colorWheel.draw(s)
 
-        self.DrawAvatar(virt, self.avatar_pos, self.avatar_r, self.user.get("foto"))
-        self.changePhotoBtn.draw(virt)
-
-        tw, th = s.get_size()
-        scale = min(tw / BASE_W, th / BASE_H)
-        new_w, new_h = int(BASE_W * scale), int(BASE_H * scale)
-        scaled = pygame.transform.smoothscale(virt, (new_w, new_h))
-        offs_x = (tw - new_w) // 2
-        offs_y = (th - new_h) // 2
-
-        s.fill((0, 0, 0))
-        s.blit(scaled, (offs_x, offs_y))
+        self.DrawAvatar(s, self.avatar_pos, self.avatar_r, self.user.get("foto"))
+        self.changePhotoBtn.draw(s)
 
     # Dibuja el avatar del usuario
     def DrawAvatar(self, s, center, r, image_path):
@@ -541,7 +511,7 @@ class PersonalizationScene(Scene):
         for b in [self.searchBtn, self.muteBtn, self.changePhotoBtn, self.returnBtn]:
             PaintButton(b)
 
-    
+
 
 
 
