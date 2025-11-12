@@ -310,7 +310,29 @@ class LoginScene(Scene):
             pass
 
         if self.faceRecognitionButton.wasClicked(event):
-            pass
+            from Reconocimientofacial import ReconocimientoFacialLBPH
+            import threading
+
+            def _face_login():
+                recog = ReconocimientoFacialLBPH()
+                recog.running = True
+                recog.login_con_rostro()
+
+                # Intentamos leer el nombre reconocido desde un archivo auxiliar (si lo agregaste)
+                nombre = None
+                try:
+                    with open("last_face_login.txt", "r") as f:
+                        nombre = f.read().strip()
+                except Exception:
+                    pass
+
+                if nombre:
+                    pygame.event.post(pygame.event.Event(LOGIN_SUCCESS, user={"username": nombre}))
+                else:
+                    self.login_message = "Rostro no reconocido."
+
+            threading.Thread(target=_face_login, daemon=True).start()
+
 
         if self.registerButton.wasClicked(event):
             self.switchScene("register")

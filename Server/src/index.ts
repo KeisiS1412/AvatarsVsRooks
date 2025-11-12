@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import express from 'express';
+import multer from "multer";
 import argon2 from 'argon2';
 import fs from 'fs';
 import path from 'path';
@@ -9,7 +10,6 @@ import { loadOrCreateKey, encryptJson, decryptJson } from './crypto';
 import { readEncryptedFile, writeEncryptedFile } from './storage';
 import { ensureDb, isAlnumMax8, isEmailBasic, normalize, nowIso, uuid } from './util';
 import { DBShape, RegisterReq, UserRecord } from './types';
-
 
 // === NUEVO ===
 import { getPublicUserByUsername } from './storage'; // para el endpoint de perfil público
@@ -204,7 +204,112 @@ async function main() {
     }
   });
   // === FIN NUEVO ===
+// === NUEVO BLOQUE: Endpoints para reconocimiento facial ===
 
+
+  const facesDir = path.resolve("data", "faces");
+  if (!fs.existsSync(facesDir)) {
+    fs.mkdirSync(facesDir, { recursive: true });
+    console.log(" Carpeta 'faces' creada.");
+  }
+
+  const storage = multer.diskStorage({
+    destination: (_, __, cb) => cb(null, facesDir),
+    filename: (req, file, cb) => {
+      const username = (req.body.username || "unknown").toLowerCase();
+      cb(null, `${username}.npy`);
+    },
+  });
+  const upload = multer({ storage });
+
+  // === BLOQUE CORREGIDO: UPLOAD & VERIFY ===
+
+  app.post("/faces/upload", async (req, res) => {
+  try {
+    const { username, face_data } = req.body;
+    if (!username || !face_data) {
+      return res.status(400).json({ ok: false, error: "Faltan datos (username o face_data)" });
+    }
+
+    const faceArray = Array.isArray(face_data) ? face_data : JSON.parse(face_data);
+    const finalPath = path.join(facesDir, `${username.toLowerCase()}.json`);
+    fs.writeFileSync(finalPath, JSON.stringify(faceArray));
+
+    console.log(`✅ Rostro recibido y guardado como ${username}.json`);
+    return res.json({ ok: true, filename: `${username}.json` });
+  } catch (err) {
+    console.error("❌ Error en /faces/upload:", err);
+    res.status(500).json({ ok: false, error: "Error interno" });
+  }
+});
+
+  app.post("/faces/verify", async (req, res) => {
+    try {
+      const { face_data } = req.body;
+      if (!face_data) {
+        return res.status(400).json({ ok: false, error: "Falta el rostro" });
+      }
+
+      // Normalizar entrada
+      const uploadedArray = Array.isArray(face_data)
+        ? face_data
+        : JSON.parse(face_data);
+
+      const files = fs.readdirSync(facesDir).filter(f => f.endsWith(".json"));
+      if (files.length === 0) {
+        return res.json({ ok: true, match: false, error: "No hay rostros registrados" });
+      }
+
+      let bestMatch: string | null = null;
+      let minDistance = Infinity;
+      const distances: { file: string; dist: number }[] = [];
+
+      // Calcular distancia con cada rostro guardado
+      for (const file of files) {
+        const knownArray = JSON.parse(fs.readFileSync(path.join(facesDir, file), "utf8"));
+        if (knownArray.length !== uploadedArray.length) continue;
+
+        const dist = Math.sqrt(
+          uploadedArray.reduce((sum: number, val: number, i: number) => 
+            sum + Math.pow(val - knownArray[i], 2), 
+          0)
+        );
+
+        distances.push({ file, dist });
+        if (dist < minDistance) {
+          minDistance = dist;
+          bestMatch = file.replace(".json", "");
+        }
+      }
+
+      // --- NUEVO: calcular umbral dinámico basado en los datos existentes ---
+      const avgDist = distances.reduce((acc, d) => acc + d.dist, 0) / distances.length;
+      const threshold = Math.max(5000, avgDist * 0.8); // se ajusta automáticamente
+
+      const match = minDistance < threshold;
+
+      console.log("🧠 Verificación facial:");
+      console.log("  • Mejor coincidencia:", bestMatch);
+      console.log("  • Distancia mínima:", minDistance.toFixed(2));
+      console.log("  • Promedio global:", avgDist.toFixed(2));
+      console.log("  • Umbral dinámico:", threshold.toFixed(2));
+      console.log("  • Resultado final:", match ? "✅ MATCH" : "❌ SIN MATCH");
+
+      res.json({ 
+        ok: true, 
+        match, 
+        username: match ? bestMatch : null, 
+        distance: minDistance,
+        threshold,
+        avgDistance: avgDist
+      });
+    } catch (err) {
+      console.error("❌ Error en /faces/verify:", err);
+      res.status(500).json({ ok: false, error: "Error interno" });
+    }
+  });
+
+  // === FIN BLOQUE NUEVO ===
   const PORT = Number(process.env.PORT || 3007);
   app.listen(PORT, () => console.log(`Servidor corriendo en http://localhost:${PORT}`));
 }

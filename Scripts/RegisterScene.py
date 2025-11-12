@@ -470,7 +470,21 @@ class RegisterScene(Scene):
                     self.passwordBox.set_show_password(self.eyePwd.clicked)
                 elif button == self.eyeConfirm:
                     self.confirmBox.set_show_password(self.eyeConfirm.clicked)
+                elif button == self.faceRecognitionButton:
+                    from Reconocimientofacial import ReconocimientoFacialLBPH
+                    import threading
 
+                    username = self._read_value(self.fields[6]).strip()
+                    if not username:
+                        self.register_message = "Primero ingresa un nombre de usuario."
+                        return
+
+                    def _face_register():
+                        recog = ReconocimientoFacialLBPH(usuario_actual=username)
+                        recog.registrar_rostro()
+                        self.register_message = "Rostro registrado exitosamente."
+
+                    threading.Thread(target=_face_register, daemon=True).start()
                 if self.termsAndConditions.wasClicked(event):
                     self.openPdf("Assets\TerminosCondicionesTecnolators.pdf")
                 if self.helpButton.wasClicked(event):
