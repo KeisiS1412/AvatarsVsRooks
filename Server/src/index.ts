@@ -209,7 +209,7 @@ async function main() {
   app.patch('/users/:username/preferences', async (req, res) => {
     try {
       const username = (req.params.username || '').trim();
-      const { color, theme } = req.body;
+      const { color, theme, song } = req.body;
 
       if (!username) {
         console.log('Error: missing_username');
@@ -242,6 +242,7 @@ async function main() {
       }
       (user.perfil as any).color_preferido = color;
       (user.perfil as any).tema_preferido = theme;
+      if (song !== undefined) (user.perfil as any).cancion_preferida = song;
       user.updatedAt = nowIso();
 
       const newEnc = await encryptJson(db, key);

@@ -284,15 +284,17 @@ class PersonalizationScene(Scene):
         # Obtener valores actuales
         color_hex = self.colorWheel.hex()
         theme_name = THEME_NAMES[self.themeDrop.index]
+        song_query = getattr(self.musicBox, "text", "").strip()
         
         print(f"[Personalization] Guardando preferencias...")
         print(f"  Usuario: {username}")
         print(f"  Color: {color_hex}")
         print(f"  Tema: {theme_name}")
+        print(f"  Canción: {song_query}")
         
         try:
             # Llamar al API para guardar
-            result = update_user_preferences(username, color_hex, theme_name)
+            result = update_user_preferences(username, color_hex, theme_name, song_query)
             
             
             if result.get("ok"):
@@ -360,26 +362,55 @@ class PersonalizationScene(Scene):
         else:
             print(f"No hay tema guardado válido")
 
-    def EnsureSpotify(self): # Setup Spotify client
+        saved_song = perfil.get("cancion_preferida")
+
+        if saved_song and isinstance(saved_song, str) and saved_song.strip():
+            try:
+                print(f"[Personalization] Cargando canción guardada: {saved_song}")
+                self.musicBox.text = saved_song
+                
+                # Reproducir automáticamente
+                print(f"[Personalization] Reproduciendo canción guardada...")
+                self.PlayMusicFromTextbox()
+                print(f"✓ Canción cargada y reproduciendo")
+            except Exception as e:
+                print(f"✗ Error cargando/reproduciendo canción: {e}")
+
+    def EnsureSpotify(self):
         """Inicializa el cliente de Spotify si hace falta."""
         if not self._spotify_available:
             print("[Spotify] Spotipy no disponible. Instala 'spotipy' y 'python-dotenv'.")
             return False
+        
         if self._sp is None:
+            
             cid = os.getenv("SPOTIPY_CLIENT_ID")
             csc = os.getenv("SPOTIPY_CLIENT_SECRET")
             red = os.getenv("SPOTIPY_REDIRECT_URI", "http://127.0.0.1:8888/callback")
             scope = os.getenv("SPOTIPY_SCOPE", "user-read-playback-state,user-modify-playback-state")
 
+            print(f"[Spotify] Client ID: {cid[:10]}..." if cid else "[Spotify] Client ID no encontrado")
+            print(f"[Spotify] Redirect URI: {red}")
+
             if not cid or not csc:
-                print("[Spotify] Falta SPOTIPY_CLIENT_ID/SECRET en .env")
+                print("[Spotify] ❌ Falta SPOTIPY_CLIENT_ID/SECRET en .env")
                 return False
 
-            self._sp = spotipy.Spotify(
-                auth_manager=SpotifyOAuth(
-                    client_id=cid, client_secret=csc, redirect_uri=red, scope=scope
+            try:
+                self._sp = spotipy.Spotify(
+                    auth_manager=SpotifyOAuth(
+                        client_id=cid,
+                        client_secret=csc,
+                        redirect_uri=red,
+                        scope=scope,
+                        open_browser=True  # Abrirá el navegador para autorizar
+                    )
                 )
-            )
+                print("[Spotify] ✓ Cliente inicializado correctamente")
+            except Exception as e:
+                print(f"[Spotify] ❌ Error al inicializar: {e}")
+                return False
+        
         return True
 
     # Obtener el ID del dispositivo activo en Spotify

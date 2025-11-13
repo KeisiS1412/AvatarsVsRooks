@@ -7,6 +7,7 @@ export type RegisterPerfil = {
   hobbie: string;
   color_preferido?: string;  
   tema_preferido?: string;   
+  cancion_preferida?: string; 
 };
 
 export type RegisterCuenta = {
