@@ -40,4 +40,13 @@ def confirm_password_reset(email: str, token: str, new_password: str) -> bool: #
     data = r.json()
     return data.get("ok", False)
 
-
+def update_user_preferences(username: str, color: str, theme: str, timeout: float = 5.0) -> dict:
+    """Actualiza las preferencias de color y tema del usuario"""
+    url = f"{BASE_URL}/users/{username}/preferences"
+    payload = {"color": color, "theme": theme}
+    try:
+        r = requests.patch(url, json=payload, timeout=timeout)
+        return r.json()
+    except Exception as e:
+        print(f"Error actualizando preferencias: {e}")
+        return {"ok": False, "error": str(e)}

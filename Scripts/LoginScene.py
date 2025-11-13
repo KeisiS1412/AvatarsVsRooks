@@ -27,14 +27,23 @@ def _merge_dicts(base: dict, extra: dict) -> dict:
 def _try_fetch_profile(username: str) -> dict:
     if not username:
         return {}
+    
+    print(f"[DEBUG LoginScene] Obteniendo perfil completo para: {username}")
     prof = get_user(username, timeout=3.0)
+    
+    print(f"[DEBUG LoginScene] Respuesta de get_user: {prof}")
+    
     if isinstance(prof, dict) and prof.get("ok") and isinstance(prof.get("user"), dict):
-        return prof["user"]
+        user_data = prof["user"]
+        print(f"[DEBUG LoginScene] Datos del usuario extraídos: {user_data}")
+        return user_data
+    
     if isinstance(prof, dict) and ("username" in prof or "perfil" in prof):
-        # por si el server devolviera el usuario directamente
+        print(f"[DEBUG LoginScene] Usuario directo: {prof}")
         return prof
+    
+    print(f"[DEBUG LoginScene] No se pudo obtener perfil válido")
     return {}
-
 
 
 class LoginScene(Scene):
@@ -126,42 +135,46 @@ class LoginScene(Scene):
         """Corre en un hilo: hace login, mergea perfil y notifica al hilo principal."""
         try:
             resp = login_user(user, pwd, timeout=5.0)
+            
             if resp.get("ok"):
                 u = resp.get("user") or {}
+                
                 username = (u.get("username") or u.get("usuario") or "").strip()
 
-                # Merge best-effort con perfil completo, nunca bloquea el flujo
+                # Merge best-effort con perfil completo
                 merged = u
                 try:
                     prof_user = _try_fetch_profile(username)
+                    
                     if prof_user:
                         merged = _merge_dicts(u, prof_user)
-                except Exception:
-                    pass
+                except Exception as e:
+                    print(f"[LoginScene] Error en merge: {e}")
 
-                # Guarda en sesión (que un fallo aquí no bloquee)
+                # Guarda en sesión
                 try:
                     set_current_user(merged)
-                except Exception:
-                    pass
+                except Exception as e:
+                    print(f"LoginScene] Error guardando en sesión: {e}")
 
-                # Señal 1: evento al hilo principal
+                # Señales...
                 try:
                     pygame.event.post(pygame.event.Event(LOGIN_SUCCESS, user=merged))
                 except Exception:
                     pass
 
-                # Señal 2 (respaldo): flag para cambiar en update()
                 self._merged_user = merged
                 self._login_ok = True
 
-                # Mensaje opcional
                 self.login_message = f"Bienvenido {merged.get('username') or merged.get('usuario', '')}"
             else:
                 self.login_message = "Usuario o contraseña incorrectos."
-        except Exception:
+        except Exception as e:
+            print(f"[LoginScene] Error general: {e}")
+            import traceback
+            traceback.print_exc()
             self.login_message = "Error de red"
-
+            
     def intentar_login(self, user: str, pwd: str):
         """Llama esto desde tu handler del botón/enter."""
         self.login_message = "Iniciando sesión..."

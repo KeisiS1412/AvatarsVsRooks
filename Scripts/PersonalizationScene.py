@@ -7,7 +7,7 @@ from TextBoxes import TextBox
 from Dropdown import Dropdown
 from InfoField import InfoField
 from ColorWheel import ColorWheel
-
+from api_client import login_user, get_user, update_user_preferences  
 
 try:
     from dotenv import load_dotenv
@@ -102,9 +102,9 @@ def GetCurrentUser():
         "hobbie":    perfil.get("hobbie", ""),
         "cumple":    perfil.get("cumple") or perfil.get("fecha_nacimiento") or perfil.get("birthday") or "",
         "foto":      perfil.get("foto") or raw.get("avatar"),
-        "_raw":      raw
+        "perfil":    perfil,  # ← AGREGAR ESTA LÍNEA para tener acceso directo al perfil
+        "_raw":      raw      # ← Mantener esto por compatibilidad
     }
-
 
 
 
@@ -140,10 +140,11 @@ class PersonalizationScene(Scene):
         )
 
         self.returnBtn = Button(
-            120, 70, 150, 60, "Return",
+            120, 70, 150, 60, "Save",
             self.font, (235, 235, 235), (210, 210, 210)
         )
-        self.returnBtn.on_click = lambda: self.switchScene("main") if self.switchScene else None
+        self.returnBtn.on_click = self.save_preferences
+        
 
         self.themeDrop = Dropdown(
             LEFT_X - 120, LEFT_Y0 + 3*LEFT_YSTEP, THEME_W, THEME_H,
@@ -169,6 +170,7 @@ class PersonalizationScene(Scene):
         self.user = GetCurrentUser()
         self.avatar_pos = AVATAR_POS
         self.avatar_r = AVATAR_R
+        self.load_saved_preferences()
         
         self.changePhotoBtn = Button(
             RIGHT_CX, self.avatar_pos[1] + self.avatar_r + 45,
@@ -272,7 +274,92 @@ class PersonalizationScene(Scene):
 
         self.avatar_path = self.user.get("foto", None)
 
-    
+    def save_preferences(self):
+        """Guarda las preferencias de color y tema del usuario"""
+        username = self.user.get("usuario", "")
+        if not username:
+            print("No hay usuario en sesión")
+            return
+        
+        # Obtener valores actuales
+        color_hex = self.colorWheel.hex()
+        theme_name = THEME_NAMES[self.themeDrop.index]
+        
+        print(f"[Personalization] Guardando preferencias...")
+        print(f"  Usuario: {username}")
+        print(f"  Color: {color_hex}")
+        print(f"  Tema: {theme_name}")
+        
+        try:
+            # Llamar al API para guardar
+            result = update_user_preferences(username, color_hex, theme_name)
+            
+            
+            if result.get("ok"):
+                print("Preferencias guardadas exitosamente en el servidor")
+                
+                # Actualizar sesión local con las nuevas preferencias
+                try:
+                    from session import get_current_user, set_current_user
+                    current = get_current_user()
+                    
+                    if isinstance(current, dict):
+                        if "perfil" not in current:
+                            current["perfil"] = {}
+                        current["perfil"]["color_preferido"] = color_hex
+                        current["perfil"]["tema_preferido"] = theme_name
+                        set_current_user(current)
+                        print("Sesión local actualizada")
+
+                except Exception as e:
+                    print(f"No se pudo actualizar sesión local: {e}")
+            else:
+                print(f"Error del servidor: {result.get('error', 'unknown')}")
+                
+        except Exception as e:
+            print(f"Error al guardar preferencias: {e}")
+            import traceback
+            traceback.print_exc() 
+
+
+    def load_saved_preferences(self):
+        """Carga y aplica las preferencias de color y tema guardadas del usuario"""
+        # El perfil está directamente en self.user["perfil"], no en self.user["_raw"]["perfil"]
+        perfil = self.user.get("perfil", {})
+        
+        # Restaurar color guardado
+        saved_color = perfil.get("color_preferido")
+        
+        if saved_color and isinstance(saved_color, str) and saved_color.startswith("#"):
+            try:
+                print(f"[Personalization] Cargando color guardado: {saved_color}")
+                # Convertir hex a RGB para el ColorWheel
+                hex_color = saved_color.lstrip("#")
+                if len(hex_color) == 6:
+                    r = int(hex_color[0:2], 16)
+                    g = int(hex_color[2:4], 16)
+                    b = int(hex_color[4:6], 16)
+                    self.colorWheel.selected = (r, g, b)
+                    self.colorHexField.set_content(saved_color)
+            
+            except Exception as e:
+                print(f"Error cargando color: {e}")
+        else:
+            print(f"No hay color guardado válido")
+        
+        # Restaurar tema guardado
+        saved_theme = perfil.get("tema_preferido")
+        
+        if saved_theme and saved_theme in THEME_NAMES:
+            try:
+                theme_idx = THEME_NAMES.index(saved_theme)
+                self.themeDrop.index = theme_idx
+                print(f"Tema aplicado")
+            except Exception as e:
+                print(f"Error cargando tema: {e}")
+        else:
+            print(f"No hay tema guardado válido")
+
     def EnsureSpotify(self): # Setup Spotify client
         """Inicializa el cliente de Spotify si hace falta."""
         if not self._spotify_available:
@@ -371,7 +458,6 @@ class PersonalizationScene(Scene):
 
     # Manejar eventos de entrada
     def handleEvent(self, event):
-        # ✅ Los eventos ya vienen mapeados desde main.py
         self.musicBox.handleEvent(event)
         self.themeDrop.handleEvent(event)
         self.hobbyDrop.handleEvent(event)
@@ -394,14 +480,29 @@ class PersonalizationScene(Scene):
                 self.music_muted = False
                 self.muteBtn.text = "Mute Music"
 
-        if hasattr(self.returnBtn, "handle"):
-            self.returnBtn.handle(event)
-        elif hasattr(self.returnBtn, "wasClicked") and self.returnBtn.wasClicked(event):
-            if self.switchScene:
-                self.switchScene("main")
+        if hasattr(self.returnBtn, "wasClicked") and self.returnBtn.wasClicked(event):
+            self.save_preferences() 
 
     # Actualizar lógica de la escena
     def update(self, dt):
+        # Detectar si el usuario cambió (por ejemplo, después de login)
+        current_username = self.user.get("usuario", "")
+        
+        try:
+            from session import get_current_user
+            session_user = get_current_user()
+            session_username = ""
+            if isinstance(session_user, dict):
+                session_username = session_user.get("username") or session_user.get("usuario") or ""
+        except Exception:
+            session_username = ""
+        
+        # Si el usuario en sesión cambió, recargar
+        if session_username and session_username != current_username:
+            print(f"[PersonalizationScene] Usuario cambió de '{current_username}' a '{session_username}', recargando...")
+            self.refresh_user()
+            self.load_saved_preferences()
+        
         base = self.colorWheel.selected  
         t_index = self.themeDrop.index
         k = THEME_MULTS[t_index]
@@ -415,7 +516,6 @@ class PersonalizationScene(Scene):
 
     # Dibujar la escena
     def draw(self, s):
-        # ✅ main.py ya escala/centra el canvas, dibuja directamente
         s.fill(self.theme_bg)
 
         s.blit(self.title_font_big.render("Personalization", True, self.theme_fg), (350, 80))
