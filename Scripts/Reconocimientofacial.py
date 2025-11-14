@@ -128,17 +128,17 @@ class ReconocimientoFacialLBPH:
         return {"ok": False, "match": False}
 
     def login_con_rostro(self):
-        """Compara el rostro actual con los registrados"""
+        """Compara el rostro actual con los registrados y retorna el nombre si coincide."""
         cap = cv2.VideoCapture(0)
         if not cap.isOpened():
             print("No se pudo acceder a la cámara.")
-            return
+            return None
 
         face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_frontalface_default.xml")
         clock = pygame.time.Clock()
         start_time = time.time()
         recognized = False
-        name = "Desconocido"
+        name = None
 
         while self.running:
             ret, frame = cap.read()
@@ -154,7 +154,7 @@ class ReconocimientoFacialLBPH:
                 result = self.verificar_en_servidor(face_crop)
 
                 if result.get("match"):
-                    name = result.get("username") or "Desconocido"
+                    name = result.get("username")
                     label = f"Reconocido: {name}"
                     color = (0, 255, 0)
                     recognized = True
@@ -177,11 +177,10 @@ class ReconocimientoFacialLBPH:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     cap.release()
-                    pygame.quit()
-                    return
+                    return None
                 elif event.type == pygame.KEYDOWN and event.key == pygame.K_q:
                     cap.release()
-                    return
+                    return None
 
             if recognized:
                 print(f" Bienvenido, {name}!")
@@ -189,13 +188,14 @@ class ReconocimientoFacialLBPH:
                     f.write(name)
                 time.sleep(1)
                 cap.release()
-                return
+                return name  # <--- AHORA SÍ RETORNA EL NOMBRE
 
             if time.time() - start_time > 15:
                 break
 
         cap.release()
         print(" Login fallido: rostro no reconocido.")
+        return None 
 
     def exit_app(self):
         """Salir del programa limpiamente"""

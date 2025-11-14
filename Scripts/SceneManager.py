@@ -6,6 +6,7 @@ from GameModeScene import GameModeScene
 from recoverPasswordScene import recoverPasswordScene
 from PersonalizationScene import PersonalizationScene
 from GameScene import GameScene
+from FacialLoginScene import FacialLoginScene, FacialRegisterScene
 
 class SceneManager:
     """Gestiona las diferentes escenas del juego y controla la escena activa."""
@@ -24,11 +25,14 @@ class SceneManager:
             "game_mode": GameModeScene(font, res, self.changeScene, self), 
             "recoverPassword" : recoverPasswordScene(font, res, self.changeScene),
             "personalization": PersonalizationScene(font, res, self.changeScene),
-            "game": GameScene(font, res, self.changeScene)
+            "game": GameScene(font, res, self.changeScene),
+            "facial_login": FacialLoginScene(font, res, self.changeScene),
+            "facial_register": FacialRegisterScene(font, res, self.changeScene),
+
         }
 
         # Escena inicial
-        self.changeScene("game")
+        self.changeScene("login")
 
     def changeScene(self, name):
         self.currentScene = self.scenes[name]

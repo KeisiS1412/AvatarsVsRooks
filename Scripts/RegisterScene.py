@@ -372,8 +372,7 @@ class RegisterScene(Scene):
         if event.type == REGISTER_SUCCESS:
             self.switchScene("login")
             return
-
-        # Click en el avatar → abrir selector
+        
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             if self.photo_rect.collidepoint(event.pos):
                 self._select_new_avatar()
@@ -386,16 +385,16 @@ class RegisterScene(Scene):
         for button in self.buttonsList:
             if button.wasClicked(event):
                 if button == self.registerButton:
+                    username = self._read_value(self.fields[6]).strip()
                     self._validate_passwords()
-                    if self.passwordError or self.confirmError:
-                        username = self._read_value(self.fields[6])  # "Usuario"
                     if self._contains_blocked(username):
                         self.usernameError = "El nombre de usuario contiene palabras no permitidas."
                         self.register_message = self.usernameError
                         continue
                     else:
                         self.usernameError = ""
-                        self.register_message = (self.passwordError or self.confirmError)
+                    if self.passwordError or self.confirmError:
+                        self.register_message = self.passwordError or self.confirmError
                         continue
 
                     perfil = {
@@ -407,7 +406,7 @@ class RegisterScene(Scene):
                         "hobbie":            self._read_value(self.fields[5]),
                     }
                     cuenta = {
-                        "username":          self._read_value(self.fields[6]),
+                        "username":          username,
                         "email":             self._read_value(self.fields[7]),
                         "password":          getattr(self.passwordBox, "text", ""),
                         "password_confirm":  getattr(self.confirmBox, "text", "")
@@ -417,6 +416,7 @@ class RegisterScene(Scene):
                         "numero_tarjeta":    self._read_value(self.fields[11]),
                         "expiracion":        self._read_value(self.fields[12]),
                     }
+
 
                     avatar_b64 = None
                     avatar_mime = None
@@ -434,9 +434,9 @@ class RegisterScene(Scene):
                         "perfil": perfil,
                         "cuenta": cuenta,
                         "pago":   pago,
-                        "acepto_tyc": False if self.checkBox.clicked else True,
-                        "avatar_b64": avatar_b64,       # <--- NUEVO
-                        "avatar_mime": avatar_mime   
+                        "acepto_tyc": self.checkBox.clicked,
+                        "avatar_b64": avatar_b64,
+                        "avatar_mime": avatar_mime
                     }
 
                     self.register_message = "Guardando..."
@@ -450,6 +450,7 @@ class RegisterScene(Scene):
                             else:
                                 field = resp.get("field", "general")
                                 err   = resp.get("error", "error")
+
                                 if field == "password" and err == "invalid_format":
                                     self.passwordError = "Solo alfanumérica, máximo 8."
                                     self.register_message = self.passwordError
@@ -459,20 +460,25 @@ class RegisterScene(Scene):
                                 else:
                                     self.register_message = f"Error en {field}: {err}"
                         except Exception:
-                            self.register_message = f"Error de red:"
+                            self.register_message = "Error de red."
+
                     threading.Thread(target=_do_register, daemon=True).start()
 
+   
                 elif button == self.loginButton:
                     self.switchScene("login")
+
+
                 elif button == self.checkBox and self.checkBox.clicked:
-                    self.openPdf("Assets\TerminosCondicionesTecnolators.pdf")
+                    self.openPdf("Assets\\TerminosCondicionesTecnolators.pdf")
+
                 elif button == self.eyePwd:
                     self.passwordBox.set_show_password(self.eyePwd.clicked)
                 elif button == self.eyeConfirm:
                     self.confirmBox.set_show_password(self.eyeConfirm.clicked)
+
                 elif button == self.faceRecognitionButton:
                     from Reconocimientofacial import ReconocimientoFacialLBPH
-                    import threading
 
                     username = self._read_value(self.fields[6]).strip()
                     if not username:
@@ -485,12 +491,12 @@ class RegisterScene(Scene):
                         self.register_message = "Rostro registrado exitosamente."
 
                     threading.Thread(target=_face_register, daemon=True).start()
-                if self.termsAndConditions.wasClicked(event):
-                    self.openPdf("Assets\TerminosCondicionesTecnolators.pdf")
-                if self.helpButton.wasClicked(event):
-                    self.switchScene("Help")
-                if self.aboutButton.wasClicked(event):
-                    self.switchScene("About")
+            if self.termsAndConditions.wasClicked(event):
+                self.openPdf("Assets\\TerminosCondicionesTecnolators.pdf")
+            if self.helpButton.wasClicked(event):
+                self.switchScene("Help")
+            if self.aboutButton.wasClicked(event):
+                self.switchScene("About")
 
     def update(self, deltaTime):
         mousePos = pygame.mouse.get_pos()

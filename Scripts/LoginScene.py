@@ -311,14 +311,12 @@ class LoginScene(Scene):
 
         if self.faceRecognitionButton.wasClicked(event):
             from Reconocimientofacial import ReconocimientoFacialLBPH
-            import threading
 
             def _face_login():
                 recog = ReconocimientoFacialLBPH()
                 recog.running = True
                 recog.login_con_rostro()
 
-                # Intentamos leer el nombre reconocido desde un archivo auxiliar (si lo agregaste)
                 nombre = None
                 try:
                     with open("last_face_login.txt", "r") as f:
@@ -326,13 +324,40 @@ class LoginScene(Scene):
                 except Exception:
                     pass
 
-                if nombre:
-                    pygame.event.post(pygame.event.Event(LOGIN_SUCCESS, user={"username": nombre}))
-                else:
+                if not nombre:
                     self.login_message = "Rostro no reconocido."
+                    return
+                try:
+                    # 1. obtener datos básicos
+                    user_basic = get_user(nombre, timeout=3.0)
+
+                    if isinstance(user_basic, dict) and user_basic.get("ok"):
+                        user_basic = user_basic.get("user", {})
+
+                    # 2. cargar perfil completo (si existe)
+                    prof_user = _try_fetch_profile(nombre)
+
+                    # 3. Mezclarlos en un solo objeto
+                    merged = _merge_dicts(user_basic, prof_user)
+
+                    # 4. Guardar en sesión
+                    try:
+                        set_current_user(merged)
+                    except Exception:
+                        pass
+
+                    # 5. Enviar el evento completo
+                    pygame.event.post(
+                        pygame.event.Event(LOGIN_SUCCESS, user=merged)
+                    )
+
+                except Exception:
+                    # Si algo falla, al menos loguea con username
+                    pygame.event.post(
+                        pygame.event.Event(LOGIN_SUCCESS, user={"username": nombre})
+                    )
 
             threading.Thread(target=_face_login, daemon=True).start()
-
 
         if self.registerButton.wasClicked(event):
             self.switchScene("register")
