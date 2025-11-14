@@ -7,7 +7,7 @@ from TextBoxes import TextBox
 from Dropdown import Dropdown
 from InfoField import InfoField
 from ColorWheel import ColorWheel
-
+from api_client import login_user, get_user, update_user_preferences  
 
 try:
     from dotenv import load_dotenv
@@ -102,9 +102,9 @@ def GetCurrentUser():
         "hobbie":    perfil.get("hobbie", ""),
         "cumple":    perfil.get("cumple") or perfil.get("fecha_nacimiento") or perfil.get("birthday") or "",
         "foto":      perfil.get("foto") or raw.get("avatar"),
-        "_raw":      raw
+        "perfil":    perfil,  # ← AGREGAR ESTA LÍNEA para tener acceso directo al perfil
+        "_raw":      raw      # ← Mantener esto por compatibilidad
     }
-
 
 
 
@@ -140,10 +140,11 @@ class PersonalizationScene(Scene):
         )
 
         self.returnBtn = Button(
-            120, 70, 150, 60, "Return",
+            120, 70, 150, 60, "Save",
             self.font, (235, 235, 235), (210, 210, 210)
         )
-        self.returnBtn.on_click = lambda: self.switchScene("main") if self.switchScene else None
+        self.returnBtn.on_click = self.save_preferences
+        
 
         self.themeDrop = Dropdown(
             LEFT_X - 120, LEFT_Y0 + 3*LEFT_YSTEP, THEME_W, THEME_H,
@@ -169,6 +170,7 @@ class PersonalizationScene(Scene):
         self.user = GetCurrentUser()
         self.avatar_pos = AVATAR_POS
         self.avatar_r = AVATAR_R
+        self.load_saved_preferences()
         
         self.changePhotoBtn = Button(
             RIGHT_CX, self.avatar_pos[1] + self.avatar_r + 45,
@@ -272,27 +274,143 @@ class PersonalizationScene(Scene):
 
         self.avatar_path = self.user.get("foto", None)
 
-    
-    def EnsureSpotify(self): # Setup Spotify client
+    def save_preferences(self):
+        """Guarda las preferencias de color y tema del usuario"""
+        username = self.user.get("usuario", "")
+        if not username:
+            print("No hay usuario en sesión")
+            return
+        
+        # Obtener valores actuales
+        color_hex = self.colorWheel.hex()
+        theme_name = THEME_NAMES[self.themeDrop.index]
+        song_query = getattr(self.musicBox, "text", "").strip()
+        
+        print(f"[Personalization] Guardando preferencias...")
+        print(f"  Usuario: {username}")
+        print(f"  Color: {color_hex}")
+        print(f"  Tema: {theme_name}")
+        print(f"  Canción: {song_query}")
+        
+        try:
+            # Llamar al API para guardar
+            result = update_user_preferences(username, color_hex, theme_name, song_query)
+            
+            
+            if result.get("ok"):
+                print("Preferencias guardadas exitosamente en el servidor")
+                
+                # Actualizar sesión local con las nuevas preferencias
+                try:
+                    from session import get_current_user, set_current_user
+                    current = get_current_user()
+                    
+                    if isinstance(current, dict):
+                        if "perfil" not in current:
+                            current["perfil"] = {}
+                        current["perfil"]["color_preferido"] = color_hex
+                        current["perfil"]["tema_preferido"] = theme_name
+                        set_current_user(current)
+                        print("Sesión local actualizada")
+
+                except Exception as e:
+                    print(f"No se pudo actualizar sesión local: {e}")
+            else:
+                print(f"Error del servidor: {result.get('error', 'unknown')}")
+                
+        except Exception as e:
+            print(f"Error al guardar preferencias: {e}")
+            import traceback
+            traceback.print_exc() 
+
+
+    def load_saved_preferences(self):
+        """Carga y aplica las preferencias de color y tema guardadas del usuario"""
+        # El perfil está directamente en self.user["perfil"], no en self.user["_raw"]["perfil"]
+        perfil = self.user.get("perfil", {})
+        
+        # Restaurar color guardado
+        saved_color = perfil.get("color_preferido")
+        
+        if saved_color and isinstance(saved_color, str) and saved_color.startswith("#"):
+            try:
+                print(f"[Personalization] Cargando color guardado: {saved_color}")
+                # Convertir hex a RGB para el ColorWheel
+                hex_color = saved_color.lstrip("#")
+                if len(hex_color) == 6:
+                    r = int(hex_color[0:2], 16)
+                    g = int(hex_color[2:4], 16)
+                    b = int(hex_color[4:6], 16)
+                    self.colorWheel.selected = (r, g, b)
+                    self.colorHexField.set_content(saved_color)
+            
+            except Exception as e:
+                print(f"Error cargando color: {e}")
+        else:
+            print(f"No hay color guardado válido")
+        
+        # Restaurar tema guardado
+        saved_theme = perfil.get("tema_preferido")
+        
+        if saved_theme and saved_theme in THEME_NAMES:
+            try:
+                theme_idx = THEME_NAMES.index(saved_theme)
+                self.themeDrop.index = theme_idx
+                print(f"Tema aplicado")
+            except Exception as e:
+                print(f"Error cargando tema: {e}")
+        else:
+            print(f"No hay tema guardado válido")
+
+        saved_song = perfil.get("cancion_preferida")
+
+        if saved_song and isinstance(saved_song, str) and saved_song.strip():
+            try:
+                print(f"[Personalization] Cargando canción guardada: {saved_song}")
+                self.musicBox.text = saved_song
+                
+                # Reproducir automáticamente
+                print(f"[Personalization] Reproduciendo canción guardada...")
+                self.PlayMusicFromTextbox()
+                print(f"✓ Canción cargada y reproduciendo")
+            except Exception as e:
+                print(f"✗ Error cargando/reproduciendo canción: {e}")
+
+    def EnsureSpotify(self):
         """Inicializa el cliente de Spotify si hace falta."""
         if not self._spotify_available:
             print("[Spotify] Spotipy no disponible. Instala 'spotipy' y 'python-dotenv'.")
             return False
+        
         if self._sp is None:
+            
             cid = os.getenv("SPOTIPY_CLIENT_ID")
             csc = os.getenv("SPOTIPY_CLIENT_SECRET")
             red = os.getenv("SPOTIPY_REDIRECT_URI", "http://127.0.0.1:8888/callback")
             scope = os.getenv("SPOTIPY_SCOPE", "user-read-playback-state,user-modify-playback-state")
 
+            print(f"[Spotify] Client ID: {cid[:10]}..." if cid else "[Spotify] Client ID no encontrado")
+            print(f"[Spotify] Redirect URI: {red}")
+
             if not cid or not csc:
-                print("[Spotify] Falta SPOTIPY_CLIENT_ID/SECRET en .env")
+                print("[Spotify] ❌ Falta SPOTIPY_CLIENT_ID/SECRET en .env")
                 return False
 
-            self._sp = spotipy.Spotify(
-                auth_manager=SpotifyOAuth(
-                    client_id=cid, client_secret=csc, redirect_uri=red, scope=scope
+            try:
+                self._sp = spotipy.Spotify(
+                    auth_manager=SpotifyOAuth(
+                        client_id=cid,
+                        client_secret=csc,
+                        redirect_uri=red,
+                        scope=scope,
+                        open_browser=True  # Abrirá el navegador para autorizar
+                    )
                 )
-            )
+                print("[Spotify] ✓ Cliente inicializado correctamente")
+            except Exception as e:
+                print(f"[Spotify] ❌ Error al inicializar: {e}")
+                return False
+        
         return True
 
     # Obtener el ID del dispositivo activo en Spotify
@@ -371,40 +489,19 @@ class PersonalizationScene(Scene):
 
     # Manejar eventos de entrada
     def handleEvent(self, event):
-        screen = pygame.display.get_surface()
-        if screen and event.type in (pygame.MOUSEBUTTONDOWN, pygame.MOUSEBUTTONUP, pygame.MOUSEMOTION):
-            tw, th = screen.get_size()
-            scale = min(tw / BASE_W, th / BASE_H)
-            offs_x = (tw - BASE_W * scale) / 2
-            offs_y = (th - BASE_H * scale) / 2
-
-            ed = event.dict.copy()
-            if 'pos' in ed:
-                px, py = ed['pos']
-                sx = (px - offs_x) / scale
-                sy = (py - offs_y) / scale
-                ed['pos'] = (int(sx), int(sy))
-            if event.type == pygame.MOUSEMOTION and 'rel' in ed:
-                rx, ry = ed['rel']
-                ed['rel'] = (rx / scale, ry / scale)
-
-            mapped = pygame.event.Event(event.type, ed)
-        else:
-            mapped = event
-
-        self.musicBox.handleEvent(mapped)
-        self.themeDrop.handleEvent(mapped)
-        self.hobbyDrop.handleEvent(mapped)
-        self.colorWheel.handleEvent(mapped)
+        self.musicBox.handleEvent(event)
+        self.themeDrop.handleEvent(event)
+        self.hobbyDrop.handleEvent(event)
+        self.colorWheel.handleEvent(event)
         self.colorHexField.set_content(self.colorWheel.hex())
 
-        if self.searchBtn.wasClicked(mapped):
+        if self.searchBtn.wasClicked(event):
             self.PlayMusicFromTextbox()
 
-        if self.changePhotoBtn.wasClicked(mapped):
+        if self.changePhotoBtn.wasClicked(event):
             pass
 
-        if self.muteBtn.wasClicked(mapped):
+        if self.muteBtn.wasClicked(event):
             if not self.music_muted:
                 self.SpotifyPause()
                 self.music_muted = True
@@ -414,14 +511,29 @@ class PersonalizationScene(Scene):
                 self.music_muted = False
                 self.muteBtn.text = "Mute Music"
 
-        if hasattr(self.returnBtn, "handle"):
-            self.returnBtn.handle(mapped)
-        elif hasattr(self.returnBtn, "wasClicked") and self.returnBtn.wasClicked(mapped):
-            if self.switchScene:
-                self.switchScene("main")
+        if hasattr(self.returnBtn, "wasClicked") and self.returnBtn.wasClicked(event):
+            self.save_preferences() 
 
     # Actualizar lógica de la escena
     def update(self, dt):
+        # Detectar si el usuario cambió (por ejemplo, después de login)
+        current_username = self.user.get("usuario", "")
+        
+        try:
+            from session import get_current_user
+            session_user = get_current_user()
+            session_username = ""
+            if isinstance(session_user, dict):
+                session_username = session_user.get("username") or session_user.get("usuario") or ""
+        except Exception:
+            session_username = ""
+        
+        # Si el usuario en sesión cambió, recargar
+        if session_username and session_username != current_username:
+            print(f"[PersonalizationScene] Usuario cambió de '{current_username}' a '{session_username}', recargando...")
+            self.refresh_user()
+            self.load_saved_preferences()
+        
         base = self.colorWheel.selected  
         t_index = self.themeDrop.index
         k = THEME_MULTS[t_index]
@@ -435,46 +547,35 @@ class PersonalizationScene(Scene):
 
     # Dibujar la escena
     def draw(self, s):
-        virt = pygame.Surface((BASE_W, BASE_H)).convert()
-        virt.fill(self.theme_bg)
+        s.fill(self.theme_bg)
 
-        virt.blit(self.title_font_big.render("Personalization", True, self.theme_fg), (350, 80))
-        virt.blit(self.title_font_big.render("Profile", True, self.theme_fg), (BASE_W//2 + 325, 80))
+        s.blit(self.title_font_big.render("Personalization", True, self.theme_fg), (350, 80))
+        s.blit(self.title_font_big.render("Profile", True, self.theme_fg), (BASE_W//2 + 325, 80))
 
-        self.returnBtn.draw(virt)
+        self.returnBtn.draw(s)
 
-        self.f_nombre.draw(virt)
-        self.f_ap1.draw(virt)
-        self.f_ap2.draw(virt)
-        self.f_usuario.draw(virt)
-        self.f_email.draw(virt)
-        self.f_tel.draw(virt)
-        self.hobbyDrop.draw(virt)
+        self.f_nombre.draw(s)
+        self.f_ap1.draw(s)
+        self.f_ap2.draw(s)
+        self.f_usuario.draw(s)
+        self.f_email.draw(s)
+        self.f_tel.draw(s)
+        self.hobbyDrop.draw(s)
 
-        self.musicBox.draw(virt, deltaTime=0)
+        self.musicBox.draw(s, deltaTime=0)
         title_font = MakeTitleFont()
         t = title_font.render("Music", True, self.theme_fg)
-        virt.blit(t, (self.musicBox.rect.x + 20, self.musicBox.rect.y - t.get_height() + 45))
+        s.blit(t, (self.musicBox.rect.x + 20, self.musicBox.rect.y - t.get_height() + 45))
         
-        self.muteBtn.draw(virt)
-        self.searchBtn.draw(virt)
+        self.muteBtn.draw(s)
+        self.searchBtn.draw(s)
 
-        self.themeDrop.draw(virt)
-        self.colorHexField.draw(virt)
-        self.colorWheel.draw(virt)
+        self.themeDrop.draw(s)
+        self.colorHexField.draw(s)
+        self.colorWheel.draw(s)
 
-        self.DrawAvatar(virt, self.avatar_pos, self.avatar_r, self.user.get("foto"))
-        self.changePhotoBtn.draw(virt)
-
-        tw, th = s.get_size()
-        scale = min(tw / BASE_W, th / BASE_H)
-        new_w, new_h = int(BASE_W * scale), int(BASE_H * scale)
-        scaled = pygame.transform.smoothscale(virt, (new_w, new_h))
-        offs_x = (tw - new_w) // 2
-        offs_y = (th - new_h) // 2
-
-        s.fill((0, 0, 0))
-        s.blit(scaled, (offs_x, offs_y))
+        self.DrawAvatar(s, self.avatar_pos, self.avatar_r, self.user.get("foto"))
+        self.changePhotoBtn.draw(s)
 
     # Dibuja el avatar del usuario
     def DrawAvatar(self, s, center, r, image_path):
@@ -541,7 +642,7 @@ class PersonalizationScene(Scene):
         for b in [self.searchBtn, self.muteBtn, self.changePhotoBtn, self.returnBtn]:
             PaintButton(b)
 
-    
+
 
 
 

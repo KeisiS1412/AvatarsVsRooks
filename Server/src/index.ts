@@ -151,7 +151,6 @@ async function main() {
 
   console.log(`Token para ${email}: ${token}`); // visible en consola
 
-  // 👇 aquí cambiamos el retorno
   return res.json({ ok: true, token });
 });
 
@@ -190,10 +189,12 @@ async function main() {
   app.get('/users/:username', async (req, res) => {
     try {
       const username = (req.params.username || '').trim();
+      
       if (!username) {
         return res.status(400).json({ ok: false, error: 'missing_username' });
       }
       const pub = await getPublicUserByUsername(username, key);
+      
       if (!pub) {
         return res.status(404).json({ ok: false, error: 'not_found' });
       }
@@ -203,6 +204,59 @@ async function main() {
       return res.status(500).json({ ok: false, error: 'internal_error' });
     }
   });
+
+  // Actualizar preferencias de usuario 
+  app.patch('/users/:username/preferences', async (req, res) => {
+    try {
+      const username = (req.params.username || '').trim();
+      const { color, theme, song } = req.body;
+
+      if (!username) {
+        console.log('Error: missing_username');
+        return res.status(400).json({ ok: false, error: 'missing_username' });
+      }
+
+      if (!color || !theme) {
+        console.log('Error: missing_preferences');
+        return res.status(400).json({ ok: false, error: 'missing_preferences' });
+      }
+
+      const enc = readEncryptedFile();
+      if (!enc) {
+        console.log('Error: no_data');
+        return res.status(404).json({ ok: false, error: 'no_data' });
+      }
+
+      const db: DBShape = await decryptJson(enc, key);
+      
+      const user = db.usuarios.find(u => normalize(u.username) === normalize(username));
+
+      if (!user) {
+        console.log(`Usuario ${username} no encontrado`);
+        return res.status(404).json({ ok: false, error: 'user_not_found' });
+      }
+
+      // Guardar preferencias en el perfil del usuario
+      if (!user.perfil) {
+        user.perfil = {} as any;
+      }
+      (user.perfil as any).color_preferido = color;
+      (user.perfil as any).tema_preferido = theme;
+      if (song !== undefined) (user.perfil as any).cancion_preferida = song;
+      user.updatedAt = nowIso();
+
+      const newEnc = await encryptJson(db, key);
+      writeEncryptedFile(newEnc);
+
+      console.log(`Preferencias guardadas para ${username}: color=${color}, theme=${theme}`);
+
+      return res.json({ ok: true, message: 'preferences_updated' });
+    } catch (err) {
+      console.error('PATCH /users/:username/preferences error:', err);
+      res.status(500).json({ ok: false, error: 'internal_error' });
+    }
+  });
+
   // === FIN NUEVO ===
 // === NUEVO BLOQUE: Endpoints para reconocimiento facial ===
 
