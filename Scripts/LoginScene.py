@@ -130,6 +130,35 @@ class LoginScene(Scene):
         # === Fuente del TÍTULO (más grande) ===
         self.title_font = pygame.font.Font(None, 65)  # ajusta 70/90 según prefieras
 
+        # --- Anti brute-force: 3 intentos -> bloqueo 15 s ---
+        self.fail_count = 0
+        self.lock_until_ms = 0  # timestamp (pygame.time.get_ticks()) hasta cuando está bloqueado
+
+
+    # === Helpers anti-brute-force ===
+    def _is_locked(self) -> bool:
+        return pygame.time.get_ticks() < self.lock_until_ms
+
+    def _lock_for(self, ms: int):
+        self.lock_until_ms = pygame.time.get_ticks() + max(0, ms)
+
+    def _remaining_lock_seconds(self) -> int:
+        rem = self.lock_until_ms - pygame.time.get_ticks()
+        return max(0, (rem + 999) // 1000)  # redondeo hacia arriba
+
+    def _register_failed_attempt(self):
+        self.fail_count += 1
+        if self.fail_count >= 3:
+            self.fail_count = 0
+            self._lock_for(15_000)  # 15 s
+            self.login_message = "Demasiados intentos. Bloqueado 15 s."
+        else:
+            self.login_message = f"Usuario o contraseña incorrectos."
+
+    def _reset_attempts(self):
+        self.fail_count = 0
+        self.lock_until_ms = 0
+
 
     def _do_login_thread(self, user: str, pwd: str):
         """Corre en un hilo: hace login, mergea perfil y notifica al hilo principal."""
@@ -182,6 +211,22 @@ class LoginScene(Scene):
 
 
     def handleEvent(self, event):
+        # 0) Si está bloqueado, impedir escribir en username/password y bloquear el botón "Continuar"
+        if self._is_locked():
+            # Bloquea el click del botón de login
+            if self.loginButton.wasClicked(event):
+                self.login_message = f"Bloqueado {self._remaining_lock_seconds()} s…"
+                return
+            # Evita pasar eventos de teclado a las cajas si están intentando escribir
+            if event.type in (pygame.KEYDOWN, pygame.TEXTINPUT):
+                return
+            # Evita que puedan enfocar/editar durante el lock
+            if event.type in (pygame.MOUSEBUTTONDOWN, pygame.MOUSEBUTTONUP):
+                if self.usernameBox.rect.collidepoint(getattr(event, "pos", (-1, -1))) or \
+                   self.passwordBox.rect.collidepoint(getattr(event, "pos", (-1, -1))):
+                    return
+            # Permitimos otros botones/escenas (help, about, register, etc.) a continuación
+
         # 1) Cambio de escena al recibir el evento de éxito de login
         if event.type == LOGIN_SUCCESS:
             try:
@@ -203,6 +248,11 @@ class LoginScene(Scene):
 
         # 3) Click en botón de login: dispara el hilo y señales de notificación
         if self.loginButton.wasClicked(event):
+            # No inicies login si está bloqueado
+            if self._is_locked():
+                self.login_message = f"Bloqueado {self._remaining_lock_seconds()} s…"
+                return
+
             user = self.usernameBox.getText()
             pwd = self.passwordBox.getText()
             self.login_message = "Iniciando sesión..."
@@ -241,11 +291,16 @@ class LoginScene(Scene):
                         self._merged_user = merged
                         self._login_ok = True
 
+                        # Éxito → resetea intentos
+                        self._reset_attempts()
+
                         # Mensaje opcional
                         self.login_message = f"Bienvenido {merged.get('username') or merged.get('usuario', '')}"
                     else:
-                        self.login_message = "Usuario o contraseña incorrectos."
+                        # Credenciales malas → cuenta intento
+                        self._register_failed_attempt()
                 except Exception:
+                    # Error de red no cuenta como intento
                     self.login_message = "Error de red"
 
             threading.Thread(target=_do_login, daemon=True).start()
@@ -254,7 +309,7 @@ class LoginScene(Scene):
             if hasattr(self.passwordBox, "set_show_password"):
                 self.passwordBox.set_show_password(self.eyePwd.clicked)
             else:
-                    # fallback si no añadiste el método helper:
+                # fallback si no añadiste el método helper:
                 self.passwordBox.showPassword = self.eyePwd.clicked
             # Flags de respaldo (Plan B) para cambiar de escena desde update()
 
@@ -263,7 +318,54 @@ class LoginScene(Scene):
             pass
 
         if self.faceRecognitionButton.wasClicked(event):
-            pass
+            from Reconocimientofacial import ReconocimientoFacialLBPH
+
+            def _face_login():
+                recog = ReconocimientoFacialLBPH()
+                recog.running = True
+                recog.login_con_rostro()
+
+                nombre = None
+                try:
+                    with open("last_face_login.txt", "r") as f:
+                        nombre = f.read().strip()
+                except Exception:
+                    pass
+
+                if not nombre:
+                    self.login_message = "Rostro no reconocido."
+                    return
+                try:
+                    # 1. obtener datos básicos
+                    user_basic = get_user(nombre, timeout=3.0)
+
+                    if isinstance(user_basic, dict) and user_basic.get("ok"):
+                        user_basic = user_basic.get("user", {})
+
+                    # 2. cargar perfil completo (si existe)
+                    prof_user = _try_fetch_profile(nombre)
+
+                    # 3. Mezclarlos en un solo objeto
+                    merged = _merge_dicts(user_basic, prof_user)
+
+                    # 4. Guardar en sesión
+                    try:
+                        set_current_user(merged)
+                    except Exception:
+                        pass
+
+                    # 5. Enviar el evento completo
+                    pygame.event.post(
+                        pygame.event.Event(LOGIN_SUCCESS, user=merged)
+                    )
+
+                except Exception:
+                    # Si algo falla, al menos loguea con username
+                    pygame.event.post(
+                        pygame.event.Event(LOGIN_SUCCESS, user={"username": nombre})
+                    )
+
+            threading.Thread(target=_face_login, daemon=True).start()
 
         if self.registerButton.wasClicked(event):
             self.switchScene("register")
@@ -278,6 +380,13 @@ class LoginScene(Scene):
 
 
     def update(self, deltaTime):
+        # Mostrar tiempo restante mientras está bloqueado
+        if self._is_locked():
+            self.login_message = f"Bloqueado {self._remaining_lock_seconds()} s…"
+        else:
+            # Si justo se liberó, que el flujo normal maneje el mensaje
+            pass
+
         # 0) Plan B: si no llegó el evento o no se reenvían eventos a la escena,
         #    cambia de escena aquí al detectar el flag
         if getattr(self, "_login_ok", False):
@@ -373,4 +482,3 @@ class LoginScene(Scene):
             mx = self.loginButton.rect.x
             my = self.loginButton.rect.bottom - 100
             screen.blit(msurf, (mx, my))
-
