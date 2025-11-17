@@ -2,7 +2,7 @@ import pygame
 import sys
 import os
 import json
-
+from publicationManager import publicationManager
 pygame.init()
 
 # ==============================
@@ -34,24 +34,53 @@ if not os.path.exists(ARCHIVO_FAMA):
 # ==============================
 # GUARDAR TOP 5 (ELIMINA EXCESO)
 # ==============================
+from publicationManager import publicationManager
+
 def guardar_en_fama(username, puntaje):
-    """Guarda el puntaje y mantiene SOLO los 5 mejores."""
+    """Guarda el puntaje, limita top 5, y publica SOLO si el top 5 cambia."""
     try:
         with open(ARCHIVO_FAMA, "r", encoding="utf-8") as f:
-            datos = json.load(f)
+            datos_antes = json.load(f)
     except:
-        datos = []
+        datos_antes = []
+
+    # Ordenarlos antes por puntaje
+    datos_antes = sorted(datos_antes, key=lambda x: x["puntaje"], reverse=True)[:5]
 
     # Agregar nuevo puntaje
-    datos.append({"username": username, "puntaje": puntaje})
+    nuevos_datos = datos_antes.copy()
+    nuevos_datos.append({"username": username, "puntaje": puntaje})
 
-    # Ordenar y dejar solo 5
-    datos = sorted(datos, key=lambda x: x["puntaje"], reverse=True)[:5]
+    # Ordenar y mantener solo top 5
+    nuevos_datos = sorted(nuevos_datos, key=lambda x: x["puntaje"], reverse=True)[:5]
 
-    # Guardar limpiando el archivo
+    # === Detectar si el nuevo puntaje ALTERA el top 5 ===
+    top_cambio = False
+
+    # Caso 1: el top 5 tenía menos de 5 elementos, siempre cambia
+    if len(datos_antes) < 5:
+        top_cambio = True
+    else:
+        # Caso 2: comparar listas — si son diferentes, hubo cambio
+        if nuevos_datos != datos_antes:
+            # Confirmar que el nuevo puntaje es el responsable del cambio
+            # Es decir: que realmente entró al top 5 o movió posiciones
+            menor_antes = datos_antes[-1]["puntaje"]
+            if puntaje > menor_antes:
+                top_cambio = True
+
+    # Guardar archivo final
     with open(ARCHIVO_FAMA, "w", encoding="utf-8") as f:
-        json.dump(datos, f, indent=4)
+        json.dump(nuevos_datos, f, indent=4)
 
+    # === Solo publicar si hubo cambio REAL del top 5 ===
+    if top_cambio:
+        scores = {item["username"]: item["puntaje"] for item in nuevos_datos}
+        manager = publicationManager(scores)
+        manager.makePosts()
+        print("📢 PUBLICADO porque hubo un nuevo puntaje dentro del TOP 5.")
+    else:
+        print("ℹ️ No se publica porque el top 5 no cambió.")
 
 # ==============================
 # LEER PUNTAJES (YA TOP 5)
