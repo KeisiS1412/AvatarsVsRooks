@@ -28,29 +28,29 @@ class SceneManager:
             "game": GameScene(font, res, self.changeScene),
             "facial_login": FacialLoginScene(font, res, self.changeScene),
             "facial_register": FacialRegisterScene(font, res, self.changeScene),
-
         }
 
         # Escena inicial
         self.changeScene("login")
 
     def changeScene(self, name):
+
         if name in self.scenes:
             self.currentScene = self.scenes[name]
-            
-            # Llamar on_scene_enter si existe
-            if hasattr(self.currentScene, 'on_scene_enter'):
-                try:
-                    self.currentScene.on_scene_enter()
-                except Exception as e:
-                    print(f"Error en on_scene_enter: {e}")
+
         else:
             raise KeyError(f"Scene '{name}' not found")
 
+        # Llamar on_scene_enter si existe
+        if hasattr(self.currentScene, 'on_scene_enter'):
+            try:
+                self.currentScene.on_scene_enter()
+            except Exception as e:
+                print(f"Error en on_scene_enter: {e}")
 
     def draw(self, screen):
         self.currentScene.draw(screen)
-
+        
     def update(self, deltaTime):
         self.currentScene.update(deltaTime)
 

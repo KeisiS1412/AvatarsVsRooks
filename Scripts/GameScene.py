@@ -11,8 +11,8 @@ class GameScene(Scene):
         self.res = res
         self.font = font
         self.matrix = Matrix(self.res, "easy")
+        self.matrix.onNextScene = self.switchScene
         self.matrix.onGameOver = self.handleGameOver
-        self.matrix.onNextScene = lambda: self.switchScene("next")
         self.coins = 0
         self.selectedRook = None
         self.shop = ShopPanel(self.res)

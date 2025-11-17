@@ -296,7 +296,6 @@ class PersonalizationScene(Scene):
             # Llamar al API para guardar
             result = update_user_preferences(username, color_hex, theme_name, song_query)
             
-            
             if result.get("ok"):
                 print("Preferencias guardadas exitosamente en el servidor")
                 
@@ -315,13 +314,19 @@ class PersonalizationScene(Scene):
 
                 except Exception as e:
                     print(f"No se pudo actualizar sesión local: {e}")
+
+                print("Cambiando a GameMode...")
+                self.switchScene("game_mode")
+                return
+
             else:
                 print(f"Error del servidor: {result.get('error', 'unknown')}")
-                
+
         except Exception as e:
             print(f"Error al guardar preferencias: {e}")
             import traceback
-            traceback.print_exc() 
+            traceback.print_exc()
+
 
 
     def load_saved_preferences(self):
