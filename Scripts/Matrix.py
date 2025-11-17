@@ -345,10 +345,10 @@ class Matrix:
                     # ============================
                     user = get_current_user()
                     username = user.get("username", "Jugador")
-                    pantalla_victoria(username, puntaje)
-
-                    # guardar en JSON después
                     guardar_en_fama(username, puntaje)
+
+                    # Ahora sí abrir pantalla
+                    pantalla_victoria(username, puntaje)
 
                 except Exception as e:
                     print("[Matrix] ERROR en cálculo de puntaje final:", e)

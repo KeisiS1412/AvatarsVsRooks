@@ -12,14 +12,14 @@ class publicationManager:
         self.image_url = "https://imgur.com/a/H5G7L7x"
 
         self.client = tweepy.Client(
-            consumer_key=os.getenv("API_KEY"),
-            consumer_secret=os.getenv("API_SECRET"),
-            access_token=os.getenv("ACCESS_TOKEN"),
-            access_token_secret=os.getenv("ACCESS_SECRET")
+            consumer_key=os.getenv("JRGxeogWq83cpOW3Tmn3SCijv"),
+            consumer_secret=os.getenv("HUKQtID8sxo2UmWk4wpcCHuACf7wwTw7F3ax0LVIU3DFeUS3mN"),
+            access_token=os.getenv("1988830542046064641-z51hp21R7epy032yddEkTJNEElZO7"),
+            access_token_secret=os.getenv("YkTm2KiV1kiA1oEfWxcPnVIiHlVbU5OgFlvThTOUDYNbp")
         )
 
-        self.ig_user_id = os.getenv("IG_USER_ID")
-        self.ig_access_token = os.getenv("IG_ACCESS_TOKEN")
+        self.ig_user_id = os.getenv("17841478254236978")
+        self.ig_access_token = os.getenv("EAAWECzGhzwIBP7JzU9aeHVE5RntAFWUFtXrDx8L7QEpHiL2i9hpm9LZCYko2vCsK6qooMtT31WLvb449EWBf2tXjY7edwdaNQzLrscpHATOimfURmhJ9n57n8ih9C9y8bBaasAqA4zWFTY2kz188UgdWs8K4L7VgKvUEOkhMYDZAlczoEJxGNvyEuzJSb1")
 
     def twitterPost(self, message):
         try:
