@@ -309,6 +309,7 @@ class PersonalizationScene(Scene):
                             current["perfil"] = {}
                         current["perfil"]["color_preferido"] = color_hex
                         current["perfil"]["tema_preferido"] = theme_name
+                        current["primera_vez"] = False
                         set_current_user(current)
                         print("Sesión local actualizada")
 

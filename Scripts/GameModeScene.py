@@ -35,6 +35,15 @@ class GameModeScene(Scene):
                 (255, 255, 255)    # borde blanco
             )
             self.buttons.append(btn)
+        
+        self.settingsBtn = Button(
+            screenW - 200, 30,
+            180, 50,
+            "Settings", font,
+            (37, 32, 28),
+            (255, 255, 255),
+            (255, 255, 255)
+        )
 
     def handleEvent(self, event):
         for button in self.buttons:
@@ -48,13 +57,17 @@ class GameModeScene(Scene):
                 elif button.text == "hard":
                     self.manager.scenes["game"].setDifficulty("hard")
                     self.switchScene("game")
+        if self.settingsBtn.wasClicked(event):
+            self.switchScene("personalization")
 
     def update(self, deltaTime):
         mousePos = pygame.mouse.get_pos()
         for button in self.buttons:
             button.update(mousePos)
+        self.settingsBtn.update(mousePos)
 
     def draw(self, screen):
         screen.fill(self.bg_color)
         for button in self.buttons:
             button.draw(screen)
+        self.settingsBtn.draw(screen)

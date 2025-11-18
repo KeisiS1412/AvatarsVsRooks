@@ -49,6 +49,7 @@ export type PublicUser = {
   username: string;
   email?: string;
   perfil?: PublicPerfil;
+  primera_vez?: boolean; 
 };
 
 function toPublicUser(u: any): PublicUser | null {
@@ -83,6 +84,7 @@ function toPublicUser(u: any): PublicUser | null {
       tema_preferido: p.tema_preferido,
       cancion_preferida: p.cancion_preferida, 
     },
+    primera_vez: u.primera_vez ?? false,
   };
 }
 

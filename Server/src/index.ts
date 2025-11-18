@@ -59,6 +59,7 @@ async function main() {
         createdAt: nowIso(),
         updatedAt: nowIso()
       };
+      user.primera_vez = true;
 
       // --- NUEVO: guardar avatar cifrado si llegó en base64 ---
       try {
@@ -243,6 +244,8 @@ async function main() {
       (user.perfil as any).color_preferido = color;
       (user.perfil as any).tema_preferido = theme;
       if (song !== undefined) (user.perfil as any).cancion_preferida = song;
+
+      user.primera_vez = false;
       user.updatedAt = nowIso();
 
       const newEnc = await encryptJson(db, key);

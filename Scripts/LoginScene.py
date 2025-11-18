@@ -231,15 +231,18 @@ class LoginScene(Scene):
         if event.type == LOGIN_SUCCESS:
             try:
                 ev_user = getattr(event, "user", None)
+                target_scene = getattr(event, "target_scene", "game_mode")  # ← MODIFICAR
+                
                 if isinstance(ev_user, dict):
                     try:
-                        set_current_user(ev_user)  # refuerza sesión con el usuario del evento
+                        set_current_user(ev_user)
                     except Exception:
                         pass
-                self.switchScene("personalization")  # ajusta el nombre si tu escena se llama distinto
+                
+                print(f"[LoginScene] Cambiando a escena: {target_scene}")
+                self.switchScene(target_scene)  # ← USAR target_scene
                 return
             except Exception:
-                # incluso si algo falla aquí, el "Plan B" en update() hará el cambio
                 pass
 
         # 2) Forward de eventos a los inputs
@@ -281,14 +284,21 @@ class LoginScene(Scene):
                         except Exception:
                             pass
 
+                        # ← NUEVO: Determinar escena según primera_vez
+                        primera_vez = merged.get("primera_vez", False)
+                        target_scene = "personalization" if primera_vez else "game_mode"
+                        
+                        print(f"[LoginScene] primera_vez={primera_vez}, ir a: {target_scene}")
+
                         # Señal 1: evento al hilo principal
                         try:
-                            pygame.event.post(pygame.event.Event(LOGIN_SUCCESS, user=merged))
+                            pygame.event.post(pygame.event.Event(LOGIN_SUCCESS, user=merged, target_scene=target_scene))
                         except Exception:
                             pass
 
                         # Señal 2: flags para el Plan B en update()
                         self._merged_user = merged
+                        self._target_scene = target_scene
                         self._login_ok = True
 
                         # Éxito → resetea intentos
@@ -397,7 +407,9 @@ class LoginScene(Scene):
             except Exception:
                 pass
             try:
-                self.switchScene("personalization")  # ajusta el nombre si es distinto
+                target_scene = getattr(self, "_target_scene", "game_mode")  # ← MODIFICAR
+                print(f"[LoginScene] (Plan B) Cambiando a: {target_scene}")
+                self.switchScene(target_scene)
             except Exception:
                 pass
             return
