@@ -16,6 +16,7 @@ from projectiles.Sword import Sword
 from Enemies.LumberjackEnemy import Lumberjack
 from Enemies.CannibalEnemy import Cannibal
 from towers.TowerFactory import TowerFactory
+from Selector import Selector
 
 
 class Matrix:
@@ -121,6 +122,16 @@ class Matrix:
             "cannibal": {"timer": random.uniform(11, 16), "min": 11, "max": 16, "maxSim": 2},
         }
 
+        cell_w, cell_h = self.cellSize
+        img_x, img_y = self.imagePos
+        img_w, img_h = self.matrixImage.get_width(), self.matrixImage.get_height()
+
+        self.selector = Selector(
+            self.cellSize,
+            xlimits=(img_x + cell_w, img_x + img_w - (2 * cell_w)),   # excluye primera/última columna
+            ylimits=(img_y + cell_h, img_y + img_h - (2 * cell_h))    # excluye primera/última fila
+)
+
     def createMatrix(self):
         self.matrix = [[0 for _ in range(self.COLUMNS)] for _ in range(self.ROWS)]
 
@@ -142,6 +153,7 @@ class Matrix:
                 tower.draw_hp_bar(screen)
         # HUD en la parte derecha, centrado verticalmente
         self._draw_hud(screen)
+        self.selector.draw(screen)
 
     def _draw_hud(self, screen):
         """Dibuja panel en la parte derecha (centrado vertical) con:
@@ -455,6 +467,11 @@ class Matrix:
                 self.add_money(coin.value)
                 return coin.value
         return 0
+    
+    def collectCoins(self):
+        for coin in list(self.coins):
+            self.coins.remove(coin)
+            self.add_money(coin.value)
 
     
     def addCoin(self, val=None):
@@ -956,3 +973,28 @@ class Matrix:
             except Exception:
                 pass
         print("[Matrix] clear_units: torres/enemigos/rooks/avatars/proyectiles limpiados")
+
+    def shoot_from_selected_tower(self):
+        """Dispara el proyectil de la torre seleccionada hacia abajo (usa los métodos existentes)."""
+        pos = self.calculateCell(self.selector.position)
+        if not pos:
+            return
+
+        row, col = pos
+        tower = self.towers.get((row, col))
+        if not tower:
+            return
+
+        # Dispara según el tipo de torre
+        if isinstance(tower, FireTower):
+            self._spawn_fireball_below(tower)
+            print("[Matrix] Disparo manual de FireTower")
+        elif isinstance(tower, WaterTower):
+            self._spawn_waterdrop_below(tower)
+            print("[Matrix] Disparo manual de WaterTower")
+        elif isinstance(tower, SandTower):
+            self._spawn_sandshard_below(tower)
+            print("[Matrix] Disparo manual de SandTower")
+        elif isinstance(tower, RockTower):
+            self._spawn_rock_below(tower)
+            print("[Matrix] Disparo manual de RockTower")

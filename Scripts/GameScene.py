@@ -17,6 +17,17 @@ class GameScene(Scene):
         self.selectedRook = None
         self.shop = ShopPanel(self.res)
         self.pause = False
+        self.client = None
+        self.connected = False
+        self.state = {"x": 0, "y": 0, "sand": 0, "fire":0, "rock":0, "water":0, "collect":0, "pause":0, "joystickButton":0}
+        self.prevPause = 0
+        self.prevCollect = 0
+        self.prevX = 0
+        self.prevY = 0
+        self.prevArriba = 0
+        self.prevAbajo = 0
+        self.prevIzquierda = 0
+        self.prevDerecha = 0
 
     def draw(self, screen):
         self.matrix.draw(screen)
@@ -80,18 +91,109 @@ class GameScene(Scene):
                         if self.matrix.money >= cost:
                             self.matrix.money -= cost
                             self.matrix.addRook(event, self.selectedRook)
-        if event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_SPACE:
-                self.pause = not self.pause
-
 
 
 
     def update(self, dt):
+        new_state = self.client.ManageMessages()
+        if new_state and new_state != self.state:
+            self.state = new_state
+            print(self.state)
+        self.handleController(dt)
         if self.pause:
             pass
         else:
             self.matrix.update(dt)
+        
+    
+    def handleController(self, dt):
+        # --- Configuración de sensibilidad ---
+        initial_delay = 500   # tiempo antes de repetir (segundos)
+        repeat_rate = 300    # tiempo entre repeticiones sostenidas (segundos)
+
+        # --- Inicializar variables si no existen ---
+        if not hasattr(self, "x_timer"):
+            self.x_timer = 0
+            self.y_timer = 0
+            self.x_held = False
+            self.y_held = False
+
+        # --- Pausa (flanco 0→1) ---
+        if self.state["pause"] == 1 and self.prevPause == 0:
+            self.pause = not self.pause
+            print("Pausa:", self.pause)
+
+        # --- Recolectar monedas ---
+        if self.state["collect"] == 1 and self.prevCollect == 0:
+            self.matrix.collectCoins()
+
+        # ===============================
+        # --- Movimiento en X ---
+        # ===============================
+        if self.state["x"] != 0:
+            if self.state["x"] != self.prevX:
+                # primer movimiento inmediato
+                self.matrix.selector.moveX(self.state["x"])
+                self.x_timer = 0
+                self.x_held = True
+            else:
+                self.x_timer += dt
+                if self.x_held:
+                    if self.x_timer >= initial_delay:
+                        # después del retardo inicial, mover cada repeat_rate
+                        steps = int(self.x_timer // repeat_rate)
+                        if steps > 0:
+                            self.matrix.selector.moveX(self.state["x"])
+                            self.x_timer -= steps * repeat_rate
+        else:
+            self.x_timer = 0
+            self.x_held = False
+
+        # ===============================
+        # --- Movimiento en Y ---
+        # ===============================
+        if self.state["y"] != 0:
+            if self.state["y"] != self.prevY:
+                self.matrix.selector.moveY(self.state["y"])
+                self.y_timer = 0
+                self.y_held = True
+            else:
+                self.y_timer += dt
+                if self.y_held:
+                    if self.y_timer >= initial_delay:
+                        steps = int(self.y_timer // repeat_rate)
+                        if steps > 0:
+                            self.matrix.selector.moveY(self.state["y"])
+                            self.y_timer -= steps * repeat_rate
+        else:
+            self.y_timer = 0
+            self.y_held = False
+
+        # --- Posición del selector ---
+        pos = self.matrix.calculateCell(self.matrix.selector.position)
+
+        # --- Colocar torres ---
+        if self.state["fire"] == 1 and self.prevArriba == 0:
+            self.matrix.try_place_tower("fire", pos[0], pos[1])
+        if self.state["water"] == 1 and self.prevAbajo == 0:
+            self.matrix.try_place_tower("water", pos[0], pos[1])
+        if self.state["sand"] == 1 and self.prevIzquierda == 0:
+            self.matrix.try_place_tower("sand", pos[0], pos[1])
+        if self.state["rock"] == 1 and self.prevDerecha == 0:
+            self.matrix.try_place_tower("rock", pos[0], pos[1])
+        if self.state.get("joystickButton", 0) == 1 and getattr(self, "prevJoystickButton", 0) == 0:
+            self.matrix.shoot_from_selected_tower()
+
+        # --- Actualizar previos ---
+        self.prevPause = self.state["pause"]
+        self.prevCollect = self.state["collect"]
+        self.prevX = self.state["x"]
+        self.prevY = self.state["y"]
+        self.prevArriba = self.state["fire"]
+        self.prevAbajo = self.state["water"]
+        self.prevIzquierda = self.state["sand"]
+        self.prevDerecha = self.state["rock"]
+        self.prevJoystickButton = self.state.get("joystickButton", 0)
 
     def handleGameOver(self):
         self.switchScene("login")
@@ -112,3 +214,7 @@ class GameScene(Scene):
         text = self.font.render("PAUSA", True, (0, 0, 0))
         text_rect = text.get_rect(center=rect.center)
         screen.blit(text, text_rect)
+
+    def SetClient(self, client, connected):
+        self.client = client
+        self.connected = connected
