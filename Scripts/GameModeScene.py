@@ -8,7 +8,7 @@ class GameModeScene(Scene):
         self.font = font
         self.res = res
         self.manager = mananger
-
+        self._auto_music_started = False 
         screenW, screenH = res
         self.bg_color = (218, 41, 28)  # Rojo fondo
 
@@ -71,3 +71,45 @@ class GameModeScene(Scene):
         for button in self.buttons:
             button.draw(screen)
         self.settingsBtn.draw(screen)
+
+    def on_scene_enter(self):  #NUEVA
+        """Al entrar al menú de juego, iniciar la música si el usuario ya eligió canción."""  #NUEVA
+        if self._auto_music_started:  #NUEVA
+            return  #NUEVA
+ #NUEVA
+        # 1. Obtener usuario actual desde la sesión  #NUEVA
+        try:  #NUEVA
+            from session import get_current_user  #NUEVA
+            user = get_current_user()  #NUEVA
+        except Exception as e:  #NUEVA
+            print(f"[GameModeScene] No se pudo obtener el usuario actual para música: {e}")  #NUEVA
+            return  #NUEVA
+ #NUEVA
+        if not isinstance(user, dict):  #NUEVA
+            return  #NUEVA
+ #NUEVA
+        perfil = user.get("perfil") or {}  #NUEVA
+        saved_song = (perfil.get("cancion_preferida") or "").strip()  #NUEVA
+        if not saved_song:  #NUEVA
+            return  #NUEVA
+ #NUEVA
+        # 2. Buscar la escena de Personalization para reutilizar su cliente de Spotify  #NUEVA
+        pscene = None  #NUEVA
+        try:  #NUEVA
+            scenes = getattr(self.manager, "scenes", {})  #NUEVA
+            pscene = scenes.get("personalization")  #NUEVA
+        except Exception:  #NUEVA
+            pscene = None  #NUEVA
+ #NUEVA
+        if pscene is None or not hasattr(pscene, "PlayMusicFromTextbox"):  #NUEVA
+            print("[GameModeScene] No se encuentra PersonalizationScene o no tiene PlayMusicFromTextbox")  #NUEVA
+            return  #NUEVA
+ #NUEVA
+        # 3. Actualizar la caja de música de Personalization con la canción guardada  #NUEVA
+        try:  #NUEVA
+            pscene.musicBox.text = saved_song  #NUEVA
+            print(f"[GameModeScene] Iniciando música automática: '{saved_song}'")  #NUEVA
+            pscene.PlayMusicFromTextbox()  #NUEVA
+            self._auto_music_started = True  #NUEVA
+        except Exception as e:  #NUEVA
+            print(f"[GameModeScene] Error al iniciar música automática: {e}")  #NUEVA

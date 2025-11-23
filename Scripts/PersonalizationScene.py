@@ -439,17 +439,15 @@ class PersonalizationScene(Scene):
 
 
     def load_saved_preferences(self):
-        """Carga y aplica las preferencias de color y tema guardadas del usuario"""
-        
+        """Carga y aplica las preferencias de color, tema y canción guardadas del usuario"""
         perfil = self.user.get("perfil", {})
-        
+
         # Restaurar color guardado
         saved_color = perfil.get("color_preferido")
-        
+
         if saved_color and isinstance(saved_color, str) and saved_color.startswith("#"):
             try:
                 print(f"[Personalization] Cargando color guardado: {saved_color}")
-                # Convertir hex a RGB para el ColorWheel
                 hex_color = saved_color.lstrip("#")
                 if len(hex_color) == 6:
                     r = int(hex_color[0:2], 16)
@@ -457,38 +455,34 @@ class PersonalizationScene(Scene):
                     b = int(hex_color[4:6], 16)
                     self.colorWheel.selected = (r, g, b)
                     self.colorHexField.set_content(saved_color)
-            
             except Exception as e:
                 print(f"Error cargando color: {e}")
         else:
-            print(f"No hay color guardado válido")
-        
+            print("No hay color guardado válido")
+
         # Restaurar tema guardado
         saved_theme = perfil.get("tema_preferido")
-        
+
         if saved_theme and saved_theme in THEME_NAMES:
             try:
                 theme_idx = THEME_NAMES.index(saved_theme)
                 self.themeDrop.index = theme_idx
-                print(f"Tema aplicado")
+                print("Tema aplicado")
             except Exception as e:
                 print(f"Error cargando tema: {e}")
         else:
-            print(f"No hay tema guardado válido")
+            print("No hay tema guardado válido")
 
+        # Restaurar canción guardada (solo texto, SIN auto-reproducir)
         saved_song = perfil.get("cancion_preferida")
 
         if saved_song and isinstance(saved_song, str) and saved_song.strip():
             try:
                 print(f"[Personalization] Cargando canción guardada: {saved_song}")
                 self.musicBox.text = saved_song
-                
-                # Reproducir automáticamente
-                print(f"[Personalization] Reproduciendo canción guardada...")
-                self.PlayMusicFromTextbox()
-                print(f"✓ Canción cargada y reproduciendo")
             except Exception as e:
-                print(f"✗ Error cargando/reproduciendo canción: {e}")
+                print(f"Error cargando canción en textbox: {e}")
+
 
     def EnsureSpotify(self):
         """Inicializa el cliente de Spotify si hace falta."""
@@ -663,33 +657,88 @@ class PersonalizationScene(Scene):
     def draw(self, s):
         s.fill(self.theme_bg)
 
+        # Títulos
         s.blit(self.title_font_big.render("Personalization", True, self.theme_fg), (350, 80))
         s.blit(self.title_font_big.render("Profile", True, self.theme_fg), (BASE_W//2 + 325, 80))
 
+        # Botón Save
         self.returnBtn.draw(s)
 
-        self.f_nombre.draw(s)
-        self.f_ap1.draw(s)
-        self.f_ap2.draw(s)
-        self.f_usuario.draw(s)
-        self.f_email.draw(s)
-        self.f_tel.draw(s)
+        # Campos de texto (InfoField)
+        info_fields = [
+            self.f_nombre, self.f_ap1, self.f_ap2,
+            self.f_usuario, self.f_email, self.f_tel,
+            self.colorHexField,
+        ]
+
+        for f in info_fields:
+            f.draw(s)
+
+        # Dropdown de hobbie
         self.hobbyDrop.draw(s)
 
+        # Caja de música (TextBox)
         self.musicBox.draw(s, deltaTime=0)
+
+
+        # Borde adaptativo para campos de texto y Background Color
+        border_color = mul(self.theme_ui, 0.88)
+        for f in info_fields:
+            try:
+                pygame.draw.rect(s, border_color, f.rect, width=2, border_radius=8)
+            except Exception:
+                pass
+
+        # Borde adaptativo para la caja de música
+        try:
+            pygame.draw.rect(s, border_color, self.musicBox.rect, width=2, border_radius=8)
+        except Exception:
+            pass
+
+        # Título "Music" encima de la caja, sin encimarse con el contenido
         title_font = MakeTitleFont()
-        t = title_font.render("Music", True, self.theme_fg)
-        s.blit(t, (self.musicBox.rect.x + 20, self.musicBox.rect.y - t.get_height() + 45))
-        
+        music_title = title_font.render("Music", True, self.theme_fg)
+        music_label_x = self.musicBox.rect.x + 10
+        music_label_y = self.musicBox.rect.y - music_title.get_height() - 6
+        s.blit(music_title, (music_label_x, music_label_y))
+
+        # Botones de música
         self.muteBtn.draw(s)
         self.searchBtn.draw(s)
 
+        # Dropdown de tema, campo de color y rueda de color
         self.themeDrop.draw(s)
         self.colorHexField.draw(s)
         self.colorWheel.draw(s)
 
+        # Avatar y botón para cambiar foto
         self.DrawAvatar(s, self.avatar_pos, self.avatar_r, self.user.get("foto"))
         self.changePhotoBtn.draw(s)
+
+        # Botón de flecha de los dropdowns: más oscuro, como los otros botones
+        btn_base = mul(self.theme_ui, 0.88)
+        btn_hover = mul(self.theme_ui, 0.80)
+        arrow_color = self.theme_fg
+        mouse_pos = pygame.mouse.get_pos()
+
+        for dd in (self.hobbyDrop, self.themeDrop):
+            try:
+                rect = dd.arrow_rect
+                hover = rect.collidepoint(mouse_pos)
+                bg = btn_hover if hover else btn_base
+
+                pygame.draw.rect(s, bg, rect, border_radius=dd.border_radius)
+                cx, cy = rect.center
+                pygame.draw.polygon(
+                    s,
+                    arrow_color,
+                    [(cx - 8, cy - 3), (cx + 8, cy - 3), (cx, cy + 7)],
+                )
+            except Exception:
+                pass
+
+
+
 
     # Dibuja el avatar del usuario
     def DrawAvatar(self, s, center, r, image_path):
@@ -766,45 +815,52 @@ class PersonalizationScene(Scene):
             print(f"[Personalization] Nuevo avatar seleccionado: {path}")  
 
     # Aplica los colores del tema a los elementos UI
+        # Aplica los colores del tema a los elementos UI
+        # Aplica los colores del tema a los elementos UI
     def ApplyTheme(self):
+        # Campos de texto (InfoField)
         info_fields = [
             self.f_nombre, self.f_ap1, self.f_ap2,
             self.f_usuario, self.f_email, self.f_tel,
             self.colorHexField
         ]
 
+        # Bordes más claros, casi como los botones
         for f in info_fields:
             f.bg = self.theme_ui
             f.text_color = self.theme_fg
             f.title_color = self.theme_fg
-            f.border_color = mul(self.theme_ui, 0.65)
+            f.border_color = mul(self.theme_ui, 0.88)
 
-        # Dropdowns
+        # Dropdowns: caja más clara, botón (parte derecha) más oscuro tipo botón normal
         def PaintDropdowns(dd):
-            dd.color_bg = self.theme_ui
-            dd.color_hover = mul(self.theme_ui, 0.95)
+            box_bg = mul(self.theme_ui, 1.05)      # caja principal un poco más clara
+            box_hover = mul(box_bg, 0.97)
+            border = mul(self.theme_ui, 0.88)      # borde similar al color de botones
+
+            dd.color_bg = box_bg
+            dd.color_hover = box_hover
             dd.color_text = self.theme_fg
             dd.title_color = self.theme_fg
-            dd.border_color = mul(self.theme_ui, 0.75)
-            dd.arrow_color = self.theme_fg
-            dd.button_bg = mul(self.theme_ui, 0.92)
-            dd.button_hover = mul(self.theme_ui, 0.88)
+            dd.color_border = border
 
         PaintDropdowns(self.hobbyDrop)
         PaintDropdowns(self.themeDrop)
 
-        # TextBox de Música
+        # TextBox de Música: colores adaptativos, texto con theme_fg
         self.musicBox.inactiveColor = self.theme_ui
         self.musicBox.activeColor = mul(self.theme_ui, 0.92)
         self.musicBox.textColor = self.theme_fg
         self.musicBox.currentColor = (
-            self.musicBox.activeColor if self.musicBox.isActive else self.musicBox.inactiveColor
+            self.musicBox.activeColor
+            if self.musicBox.isActive
+            else self.musicBox.inactiveColor
         )
 
-        # Botones
+        # Botones: tonos oscuros, como referencia para el botón de los dropdown
         def PaintButton(b):
             btn_base = mul(self.theme_ui, 0.88)
-            btn_hover = mul(self.theme_ui, 0.82)
+            btn_hover = mul(self.theme_ui, 0.80)
 
             if hasattr(b, "normalColor"): b.normalColor = btn_base
             if hasattr(b, "overColor"): b.overColor = btn_hover
@@ -817,9 +873,3 @@ class PersonalizationScene(Scene):
 
         for b in [self.searchBtn, self.muteBtn, self.changePhotoBtn, self.returnBtn]:
             PaintButton(b)
-
-
-
-
-
-
