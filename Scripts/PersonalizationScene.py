@@ -275,58 +275,81 @@ class PersonalizationScene(Scene):
         self.avatar_path = self.user.get("foto", None)
 
     def save_preferences(self):
-        """Guarda las preferencias de color y tema del usuario"""
+        """Guarda las preferencias de color, tema, canción y hobbie del usuario"""
         username = self.user.get("usuario", "")
         if not username:
             print("No hay usuario en sesión")
             return
-        
-        # Obtener valores actuales
+
+        # Valores actuales de la UI
         color_hex = self.colorWheel.hex()
         theme_name = THEME_NAMES[self.themeDrop.index]
         song_query = getattr(self.musicBox, "text", "").strip()
-        
+
+        # Hobbie actual desde el dropdown
+        try:
+            if hasattr(self, "hobbyDrop") and self.hobbyDrop is not None:
+                hobby_value = getattr(self.hobbyDrop, "value", "")
+            else:
+                hobby_value = self.user.get("hobbie") or ""
+        except Exception:
+            hobby_value = self.user.get("hobbie") or ""
+
         print(f"[Personalization] Guardando preferencias...")
         print(f"  Usuario: {username}")
         print(f"  Color: {color_hex}")
         print(f"  Tema: {theme_name}")
         print(f"  Canción: {song_query}")
-        
+        print(f"  Hobbie: {hobby_value}")
+
+        # Llamar al API
         try:
-            # Llamar al API para guardar
-            result = update_user_preferences(username, color_hex, theme_name, song_query)
-            
-            if result.get("ok"):
-                print("Preferencias guardadas exitosamente en el servidor")
-                
-                # Actualizar sesión local con las nuevas preferencias
-                try:
-                    from session import get_current_user, set_current_user
-                    current = get_current_user()
-                    
-                    if isinstance(current, dict):
-                        if "perfil" not in current:
-                            current["perfil"] = {}
-                        current["perfil"]["color_preferido"] = color_hex
-                        current["perfil"]["tema_preferido"] = theme_name
-                        current["primera_vez"] = False
-                        set_current_user(current)
-                        print("Sesión local actualizada")
-
-                except Exception as e:
-                    print(f"No se pudo actualizar sesión local: {e}")
-
-                print("Cambiando a GameMode...")
-                self.switchScene("game_mode")
-                return
-
-            else:
-                print(f"Error del servidor: {result.get('error', 'unknown')}")
-
+            result = update_user_preferences(
+                username,
+                color_hex,
+                theme_name,
+                song_query,
+                hobby_value,
+            )
         except Exception as e:
-            print(f"Error al guardar preferencias: {e}")
-            import traceback
-            traceback.print_exc()
+            print(f"Error llamando al API de preferencias: {e}")
+            return
+
+        if not isinstance(result, dict) or not result.get("ok"):
+            print(f"El servidor no aceptó las preferencias: {result}")
+            return
+
+        print("Preferencias guardadas exitosamente en el servidor")
+
+        # Actualizar el dict local de usuario
+        self.user["hobbie"] = hobby_value
+
+        # Actualizar la sesión local
+        try:
+            from session import get_current_user, set_current_user
+
+            current = get_current_user()
+            if isinstance(current, dict):
+                perfil = current.get("perfil")
+                if not isinstance(perfil, dict):
+                    perfil = {}
+
+                perfil["hobbie"] = hobby_value
+                perfil["color_preferido"] = color_hex
+                perfil["tema_preferido"] = theme_name
+                if song_query:
+                    perfil["cancion_preferida"] = song_query
+
+                current["perfil"] = perfil
+                current["primera_vez"] = False
+                set_current_user(current)
+                print("Sesión local actualizada")
+        except Exception as e:
+            print(f"No se pudo actualizar sesión local: {e}")
+
+        print("Cambiando a GameMode...")
+        self.switchScene("game_mode")
+
 
 
 
@@ -597,6 +620,7 @@ class PersonalizationScene(Scene):
                 pass
 
     # Aplica los colores del tema a los elementos UI
+        # Aplica los colores del tema a los elementos UI
     def ApplyTheme(self):
         info_fields = [
             self.f_nombre, self.f_ap1, self.f_ap2,
@@ -623,13 +647,14 @@ class PersonalizationScene(Scene):
 
         PaintDropdowns(self.hobbyDrop)
         PaintDropdowns(self.themeDrop)
-        self.refresh_user()
 
         # TextBox de Música
         self.musicBox.inactiveColor = self.theme_ui
         self.musicBox.activeColor = mul(self.theme_ui, 0.92)
         self.musicBox.textColor = self.theme_fg
-        self.musicBox.currentColor = self.musicBox.activeColor if self.musicBox.isActive else self.musicBox.inactiveColor
+        self.musicBox.currentColor = (
+            self.musicBox.activeColor if self.musicBox.isActive else self.musicBox.inactiveColor
+        )
 
         # Botones
         def PaintButton(b):
@@ -647,6 +672,7 @@ class PersonalizationScene(Scene):
 
         for b in [self.searchBtn, self.muteBtn, self.changePhotoBtn, self.returnBtn]:
             PaintButton(b)
+
 
 
 

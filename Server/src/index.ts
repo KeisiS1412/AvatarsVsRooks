@@ -206,11 +206,11 @@ async function main() {
     }
   });
 
-  // Actualizar preferencias de usuario 
+    // Actualizar preferencias de usuario 
   app.patch('/users/:username/preferences', async (req, res) => {
     try {
       const username = (req.params.username || '').trim();
-      const { color, theme, song } = req.body;
+      const { color, theme, song, hobbie } = req.body;
 
       if (!username) {
         console.log('Error: missing_username');
@@ -229,21 +229,38 @@ async function main() {
       }
 
       const db: DBShape = await decryptJson(enc, key);
-      
-      const user = db.usuarios.find(u => normalize(u.username) === normalize(username));
+
+      const needle = normalize(username);
+      const user = db.usuarios.find(
+        (u: any) => normalize(u?.username) === needle || normalize(u?.usuario) === needle
+      );
 
       if (!user) {
         console.log(`Usuario ${username} no encontrado`);
         return res.status(404).json({ ok: false, error: 'user_not_found' });
       }
 
-      // Guardar preferencias en el perfil del usuario
       if (!user.perfil) {
-        user.perfil = {} as any;
+        (user as any).perfil = {
+          nombre: '',
+          apellidos: '',
+          telefono: '',
+          fecha_nacimiento: '',
+          pais: '',
+          hobbie: '',
+        };
       }
-      (user.perfil as any).color_preferido = color;
-      (user.perfil as any).tema_preferido = theme;
-      if (song !== undefined) (user.perfil as any).cancion_preferida = song;
+
+      const perfil: any = (user as any).perfil;
+
+      perfil.color_preferido = color;
+      perfil.tema_preferido = theme;
+      if (song !== undefined) {
+        perfil.cancion_preferida = song;
+      }
+      if (hobbie !== undefined) {
+        perfil.hobbie = hobbie;
+      }
 
       user.primera_vez = false;
       user.updatedAt = nowIso();
@@ -251,7 +268,9 @@ async function main() {
       const newEnc = await encryptJson(db, key);
       writeEncryptedFile(newEnc);
 
-      console.log(`Preferencias guardadas para ${username}: color=${color}, theme=${theme}`);
+      console.log(
+        `Preferencias guardadas para ${username}: color=${color}, theme=${theme}, hobbie=${hobbie ?? ''}`
+      );
 
       return res.json({ ok: true, message: 'preferences_updated' });
     } catch (err) {
@@ -259,6 +278,7 @@ async function main() {
       res.status(500).json({ ok: false, error: 'internal_error' });
     }
   });
+
 
   // === FIN NUEVO ===
 // === NUEVO BLOQUE: Endpoints para reconocimiento facial ===
