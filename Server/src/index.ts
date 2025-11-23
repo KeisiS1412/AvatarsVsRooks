@@ -6,7 +6,7 @@ import fs from 'fs';
 import path from 'path';
 import { encryptBytes } from './crypto';
 import crypto from 'crypto';
-import { loadOrCreateKey, encryptJson, decryptJson } from './crypto';
+import { loadOrCreateKey, encryptJson, decryptJson, decryptBytes} from './crypto';
 import { readEncryptedFile, writeEncryptedFile } from './storage';
 import { ensureDb, isAlnumMax8, isEmailBasic, normalize, nowIso, uuid } from './util';
 import { DBShape, RegisterReq, UserRecord } from './types';
@@ -59,6 +59,7 @@ async function main() {
         createdAt: nowIso(),
         updatedAt: nowIso()
       };
+      user.primera_vez = true;
 
       // --- NUEVO: guardar avatar cifrado si llegó en base64 ---
       try {
@@ -205,11 +206,11 @@ async function main() {
     }
   });
 
-  // Actualizar preferencias de usuario 
+    // Actualizar preferencias de usuario 
   app.patch('/users/:username/preferences', async (req, res) => {
     try {
       const username = (req.params.username || '').trim();
-      const { color, theme, song } = req.body;
+      const { color, theme, song, hobbie } = req.body;
 
       if (!username) {
         console.log('Error: missing_username');
@@ -228,27 +229,48 @@ async function main() {
       }
 
       const db: DBShape = await decryptJson(enc, key);
-      
-      const user = db.usuarios.find(u => normalize(u.username) === normalize(username));
+
+      const needle = normalize(username);
+      const user = db.usuarios.find(
+        (u: any) => normalize(u?.username) === needle || normalize(u?.usuario) === needle
+      );
 
       if (!user) {
         console.log(`Usuario ${username} no encontrado`);
         return res.status(404).json({ ok: false, error: 'user_not_found' });
       }
 
-      // Guardar preferencias en el perfil del usuario
       if (!user.perfil) {
-        user.perfil = {} as any;
+        (user as any).perfil = {
+          nombre: '',
+          apellidos: '',
+          telefono: '',
+          fecha_nacimiento: '',
+          pais: '',
+          hobbie: '',
+        };
       }
-      (user.perfil as any).color_preferido = color;
-      (user.perfil as any).tema_preferido = theme;
-      if (song !== undefined) (user.perfil as any).cancion_preferida = song;
+
+      const perfil: any = (user as any).perfil;
+
+      perfil.color_preferido = color;
+      perfil.tema_preferido = theme;
+      if (song !== undefined) {
+        perfil.cancion_preferida = song;
+      }
+      if (hobbie !== undefined) {
+        perfil.hobbie = hobbie;
+      }
+
+      user.primera_vez = false;
       user.updatedAt = nowIso();
 
       const newEnc = await encryptJson(db, key);
       writeEncryptedFile(newEnc);
 
-      console.log(`Preferencias guardadas para ${username}: color=${color}, theme=${theme}`);
+      console.log(
+        `Preferencias guardadas para ${username}: color=${color}, theme=${theme}, hobbie=${hobbie ?? ''}`
+      );
 
       return res.json({ ok: true, message: 'preferences_updated' });
     } catch (err) {
@@ -256,6 +278,59 @@ async function main() {
       res.status(500).json({ ok: false, error: 'internal_error' });
     }
   });
+
+  app.post('/users/:username/avatar', async (req, res) => { 
+    try { 
+      const username = (req.params.username || '').trim(); 
+      const { avatar_b64, avatar_mime } = (req.body || {}) as { avatar_b64?: string; avatar_mime?: string }; 
+ 
+      if (!username) { 
+        return res.status(400).json({ ok: false, error: 'missing_username' }); 
+      } 
+      if (!avatar_b64) { 
+        return res.status(400).json({ ok: false, error: 'missing_avatar_b64' }); 
+      } 
+ 
+      const enc = readEncryptedFile(); 
+      if (!enc) { 
+        return res.status(404).json({ ok: false, error: 'no_data' }); 
+      } 
+ 
+      const db: DBShape = await decryptJson(enc, key); 
+      const needle = normalize(username); 
+      const user = db.usuarios.find( 
+        u => normalize(u.username) === needle || normalize((u as any).usuario) === needle 
+      ); 
+ 
+      if (!user) { 
+        return res.status(404).json({ ok: false, error: 'user_not_found' }); 
+      } 
+ 
+      const raw = Buffer.from(avatar_b64, 'base64'); 
+      const encBlob = await encryptBytes(new Uint8Array(raw), key); 
+ 
+      const dir = path.resolve('data', 'avatars'); 
+      fs.mkdirSync(dir, { recursive: true }); 
+      const avatarFilename = `${user.id}.bin.enc`; 
+      const avatarPath = path.join(dir, avatarFilename); 
+      fs.writeFileSync(avatarPath, JSON.stringify(encBlob), 'utf8'); 
+ 
+      (user as any).avatar = { 
+        path: './data/avatars/' + avatarFilename, 
+        mime: avatar_mime || 'image/png', 
+      }; 
+ 
+      user.updatedAt = nowIso(); 
+ 
+      const newEnc = await encryptJson(db, key); 
+      writeEncryptedFile(newEnc); 
+ 
+      return res.json({ ok: true, message: 'avatar_updated' }); 
+    } catch (err) { 
+      console.error('Error en /users/:username/avatar:', err); 
+      res.status(500).json({ ok: false, error: 'internal_error' }); 
+    } 
+  }); 
 
   // === FIN NUEVO ===
 // === NUEVO BLOQUE: Endpoints para reconocimiento facial ===
@@ -362,6 +437,49 @@ async function main() {
       res.status(500).json({ ok: false, error: "Error interno" });
     }
   });
+
+
+  app.get('/users/:username/avatar', async (req, res) => { 
+    try { 
+      const username = (req.params.username || '').trim(); 
+      if (!username) { 
+        return res.status(400).json({ ok: false, error: 'missing_username' }); 
+      } 
+ 
+      const enc = readEncryptedFile(); 
+      if (!enc) { 
+        return res.status(404).json({ ok: false, error: 'no_data' }); 
+      } 
+ 
+      const db: DBShape = await decryptJson(enc, key); 
+      const needle = normalize(username); 
+      const user = db.usuarios.find( 
+        (u: any) => normalize(u?.username) === needle || normalize(u?.usuario) === needle 
+      ); 
+ 
+      if (!user || !(user as any).avatar) { 
+        return res.status(404).json({ ok: false, error: 'avatar_not_found' }); 
+      } 
+ 
+      const avatarMeta = (user as any).avatar as { path: string; mime?: string }; 
+      const avatarPath = path.resolve(avatarMeta.path); 
+ 
+      if (!fs.existsSync(avatarPath)) { 
+        return res.status(404).json({ ok: false, error: 'avatar_file_missing' }); 
+      } 
+ 
+      const raw = fs.readFileSync(avatarPath, 'utf8'); 
+      const blob = JSON.parse(raw); 
+      const bytes = await decryptBytes(blob, key); 
+ 
+      const mime = avatarMeta.mime || 'image/png'; 
+      res.setHeader('Content-Type', mime); 
+      res.send(Buffer.from(bytes)); 
+    } catch (err) { 
+      console.error('GET /users/:username/avatar error:', err); 
+      res.status(500).json({ ok: false, error: 'internal_error' }); 
+    } 
+  }); 
 
   // === FIN BLOQUE NUEVO ===
   const PORT = Number(process.env.PORT || 3007);

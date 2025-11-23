@@ -7,7 +7,15 @@ from TextBoxes import TextBox
 from Dropdown import Dropdown
 from InfoField import InfoField
 from ColorWheel import ColorWheel
-from api_client import login_user, get_user, update_user_preferences  
+from api_client import login_user, get_user, update_user_preferences, download_avatar, upload_avatar
+
+# Tkinter para el selector de archivos
+try:  
+    import tkinter as _tk  
+    from tkinter import filedialog as _fd  
+    _TK_OK = True  
+except Exception:  
+    _TK_OK = False  
 
 try:
     from dotenv import load_dotenv
@@ -66,6 +74,16 @@ def is_dark(c):
 def MakeTitleFont():
     return pygame.font.Font("Assets/Avenir.ttf", TITLE_FONT_SIZE)
 
+def makeCircularAvatar(self, img_surf, radius):  
+        size = radius * 2  
+        img_surf = pygame.transform.smoothscale(img_surf, (size, size))  
+
+        circle_surf = pygame.Surface((size, size), pygame.SRCALPHA)  
+        mask = pygame.Surface((size, size), pygame.SRCALPHA)  
+        pygame.draw.circle(mask, (255, 255, 255, 255), (radius, radius), radius)  
+        img_surf.blit(mask, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)  
+
+        return img_surf  
 
 # Obtiene los datos del usuario actual desde la sesión
 def GetCurrentUser():
@@ -121,6 +139,7 @@ class PersonalizationScene(Scene):
         self._spotify_available = (spotipy is not None and SpotifyOAuth is not None)
         self._last_play_query = None
         self.music_muted = False
+        self.avatar_dirty = False
 
         self.musicBox = TextBox(
             LEFT_X + 10, LEFT_Y0 + 0*LEFT_YSTEP, MUSIC_W, MUSIC_H,
@@ -172,6 +191,17 @@ class PersonalizationScene(Scene):
         self.avatar_r = AVATAR_R
         self.load_saved_preferences()
         
+         # Descargar avatar actual
+        self.avatar_local_path = None  
+        username = self.user.get("usuario")  
+        if username:  
+            try:  
+                self.avatar_local_path = download_avatar(username)  
+                if self.avatar_local_path:  
+                    self.user["foto"] = self.avatar_local_path  
+            except Exception as e:  
+                print(f"[Personalization] Error descargando avatar: {e}")  
+
         self.changePhotoBtn = Button(
             RIGHT_CX, self.avatar_pos[1] + self.avatar_r + 45,
             BTN_PHOTO_W, BTN_PHOTO_H, "Change Profile Picture",
@@ -195,8 +225,8 @@ class PersonalizationScene(Scene):
         
         self.hobbyDrop = Dropdown(
             xR, y0 + 3*dy, w, h, self.font,
-            ["Sports", "Music", "Art"],
-            initial_index=(["Sports", "Music", "Art"].index(self.user["hobbie"]) if self.user["hobbie"] in ["Sports", "Music", "Art"] else 0),
+            ["Sports", "Movies", "Art"],
+            initial_index=(["Sports", "Movies", "Art"].index(self.user["hobbie"]) if self.user["hobbie"] in ["Sports", "Movies", "Art"] else 0),
             content_offset_y=16,
             title="Hobbie",
             title_font=MakeTitleFont(),
@@ -210,12 +240,13 @@ class PersonalizationScene(Scene):
 
         self.ApplyTheme()
 
-    # Refresca los datos del usuario desde la sesión
+    # Recarga los datos del usuario desde la sesión
     def refresh_user(self):
         self.user = GetCurrentUser()
 
         def put(widget, key):
-            if widget is None: return
+            if widget is None:
+                return
             val = self.user.get(key, "")
             try:
                 widget.set_content(val)
@@ -225,7 +256,6 @@ class PersonalizationScene(Scene):
                 except Exception:
                     pass
 
-        # Ajusta estos nombres a tus variables reales
         put(getattr(self, "f_nombre", None),   "nombre")
         put(getattr(self, "f_ap1", None),      "apellido1")
         put(getattr(self, "f_ap2", None),      "apellido2")
@@ -233,30 +263,24 @@ class PersonalizationScene(Scene):
         put(getattr(self, "f_email", None),    "email")
         put(getattr(self, "f_tel", None),      "telefono")
 
-        # Dropdown de hobbie 
-        try:
-            dd = getattr(self, "hobbyDrop", None)
-            if dd:
-                raw_val = (self.user.get("hobbie") or "").strip()
-
-                import unicodedata
-                def norm(s):
-                    s = s.strip().lower()
-                    s = ''.join(c for c in unicodedata.normalize('NFD', s) if unicodedata.category(c) != 'Mn')
-                    return s
-
-                v = norm(raw_val)
-
+        # Hobby guardado
+        dd = getattr(self, "hobbyDrop", None)
+        if dd is not None:
+            try:
+                raw_val = self.user.get("hobbie", "")
+                v = (raw_val or "").strip().lower()
                 alias = {
                     "deportes": "Sports",
-                    "sport": "Sports",
                     "sports": "Sports",
                     "musica": "Music",
                     "music": "Music",
                     "películas": "Movies",
+                    "peliculas": "Movies",
                     "movies": "Movies",
+                    "juegos": "Games",
+                    "games": "Games",
                 }
-                target = alias.get(v, raw_val)  
+                target = alias.get(v, raw_val)
 
                 if hasattr(dd, "set_value"):
                     dd.set_value(target)
@@ -264,63 +288,146 @@ class PersonalizationScene(Scene):
                     options = getattr(dd, "options", None)
                     if isinstance(options, (list, tuple)) and options:
                         def opt_value(item):
-                            return item[1] if isinstance(item, (list, tuple)) and len(item) >= 2 else item
+                            if isinstance(item, (list, tuple)) and len(item) >= 2:
+                                return item[1]
+                            return item
                         vals = [opt_value(o) for o in options]
                         idx = vals.index(target) if target in vals else 0
                         dd.index = idx
+            except Exception:
+                pass
+
+        # Música guardada
+        try:
+            perfil = self.user.get("perfil") or {}
+            saved_song = perfil.get("cancion_preferida") or self.user.get("cancion_preferida") or ""
+            if saved_song and hasattr(self.musicBox, "set_content"):
+                self.musicBox.set_content(saved_song)
+            elif saved_song:
+                self.musicBox.text = saved_song
         except Exception:
             pass
 
+        # Descargar avatar
+        username = self.user.get("usuario") or ""  # nombre de usuario 
+        foto = self.user.get("foto")             
 
-        self.avatar_path = self.user.get("foto", None)
+        local_path = None
+
+        # Si ya es una ruta string válida y existe, úsala tal cual
+        if isinstance(foto, str) and os.path.exists(foto):
+            local_path = foto
+        else:
+            # Si viene como dict, ignoramos el path cifrado y pedimos al backend
+            if username:
+                try:
+                    print(f"[Personalization] Descargando avatar para {username}...")
+                    local_path = download_avatar(username)
+                    print(f"[Personalization] Avatar local: {local_path}")
+                except Exception as e:
+                    print(f"[Personalization] Error descargando avatar: {e}")
+
+        # Actualiza lo que usará DrawAvatar
+        if local_path:
+            self.user["foto"] = local_path
+        else:
+            # Si no hay avatar disponible, mejor dejarlo en None para que no intente cargar un dict
+            self.user["foto"] = None
+
 
     def save_preferences(self):
-        """Guarda las preferencias de color y tema del usuario"""
+        """Guarda las preferencias de color, tema, canción, hobbie y avatar del usuario"""
         username = self.user.get("usuario", "")
         if not username:
             print("No hay usuario en sesión")
             return
-        
-        # Obtener valores actuales
+
+        # Valores actuales
         color_hex = self.colorWheel.hex()
         theme_name = THEME_NAMES[self.themeDrop.index]
         song_query = getattr(self.musicBox, "text", "").strip()
-        
+
+        # Hobby desde el dropdown
+        hobby_value = ""
+        try:
+            if hasattr(self, "hobbyDrop") and self.hobbyDrop is not None:
+                if hasattr(self.hobbyDrop, "value"):
+                    hobby_value = getattr(self.hobbyDrop, "value", "") or ""
+                else:
+                    opts = getattr(self.hobbyDrop, "options", None)
+                    idx = getattr(self.hobbyDrop, "index", 0)
+                    if isinstance(opts, (list, tuple)) and opts:
+                        item = opts[idx if 0 <= idx < len(opts) else 0]
+                        if isinstance(item, (list, tuple)) and len(item) >= 2:
+                            hobby_value = item[1]
+                        else:
+                            hobby_value = item
+            else:
+                hobby_value = self.user.get("hobbie") or ""
+        except Exception as e:
+            print(f"[Personalization] No se pudo leer hobby del dropdown: {e}")
+            hobby_value = self.user.get("hobbie") or ""
+
         print(f"[Personalization] Guardando preferencias...")
         print(f"  Usuario: {username}")
         print(f"  Color: {color_hex}")
         print(f"  Tema: {theme_name}")
         print(f"  Canción: {song_query}")
-        
+        print(f"  Hobbie: {hobby_value}")
+
         try:
-            # Llamar al API para guardar
-            result = update_user_preferences(username, color_hex, theme_name, song_query)
-            
-            if result.get("ok"):
-                print("Preferencias guardadas exitosamente en el servidor")
-                
-                # Actualizar sesión local con las nuevas preferencias
-                try:
-                    from session import get_current_user, set_current_user
-                    current = get_current_user()
-                    
-                    if isinstance(current, dict):
-                        if "perfil" not in current:
-                            current["perfil"] = {}
-                        current["perfil"]["color_preferido"] = color_hex
-                        current["perfil"]["tema_preferido"] = theme_name
-                        set_current_user(current)
-                        print("Sesión local actualizada")
+            # Preferencias básicas
+            result = update_user_preferences(
+                username=username,
+                color=color_hex,
+                theme=theme_name,
+                song=song_query,
+                hobbie=hobby_value,
+            )
 
-                except Exception as e:
-                    print(f"No se pudo actualizar sesión local: {e}")
-
-                print("Cambiando a GameMode...")
-                self.switchScene("game_mode")
+            if not isinstance(result, dict) or not result.get("ok"):
+                print(f"Error del servidor al guardar preferencias: {result}")
                 return
 
-            else:
-                print(f"Error del servidor: {result.get('error', 'unknown')}")
+            print("[Personalization] Preferencias básicas guardadas en backend")
+
+            # Avatar nuevo 
+            if getattr(self, "avatar_dirty", False):
+                avatar_path = self.user.get("foto") or getattr(self, "avatar_path", None)
+                if avatar_path and os.path.exists(avatar_path):
+                    print(f"[Personalization] Subiendo nuevo avatar {avatar_path}...")
+                    avatar_result = upload_avatar(username, avatar_path)
+                    print(f"[Personalization] Respuesta avatar: {avatar_result}")
+                    if not avatar_result.get("ok"):
+                        print(f"[Personalization] No se pudo actualizar el avatar: {avatar_result}")
+                    else:
+                        self.avatar_dirty = False
+
+            # Actualizar la sesión 
+            try:
+                from session import get_current_user, set_current_user
+
+                current = get_current_user()
+                if isinstance(current, dict):
+                    perfil = current.get("perfil")
+                    if not isinstance(perfil, dict):
+                        perfil = {}
+
+                    perfil["hobbie"] = hobby_value
+                    perfil["color_preferido"] = color_hex
+                    perfil["tema_preferido"] = theme_name
+                    if song_query:
+                        perfil["cancion_preferida"] = song_query
+
+                    current["perfil"] = perfil
+                    current["primera_vez"] = False
+                    set_current_user(current)
+                    print("[Personalization] Sesión local actualizada")
+            except Exception as e:
+                print(f"[Personalization] No se pudo actualizar la sesión local: {e}")
+
+            print("[Personalization] Cambiando a GameMode...")
+            self.switchScene("game_mode")
 
         except Exception as e:
             print(f"Error al guardar preferencias: {e}")
@@ -329,18 +436,18 @@ class PersonalizationScene(Scene):
 
 
 
+
+
     def load_saved_preferences(self):
-        """Carga y aplica las preferencias de color y tema guardadas del usuario"""
-        # El perfil está directamente en self.user["perfil"], no en self.user["_raw"]["perfil"]
+        """Carga y aplica las preferencias de color, tema y canción guardadas del usuario"""
         perfil = self.user.get("perfil", {})
-        
+
         # Restaurar color guardado
         saved_color = perfil.get("color_preferido")
-        
+
         if saved_color and isinstance(saved_color, str) and saved_color.startswith("#"):
             try:
                 print(f"[Personalization] Cargando color guardado: {saved_color}")
-                # Convertir hex a RGB para el ColorWheel
                 hex_color = saved_color.lstrip("#")
                 if len(hex_color) == 6:
                     r = int(hex_color[0:2], 16)
@@ -348,38 +455,34 @@ class PersonalizationScene(Scene):
                     b = int(hex_color[4:6], 16)
                     self.colorWheel.selected = (r, g, b)
                     self.colorHexField.set_content(saved_color)
-            
             except Exception as e:
                 print(f"Error cargando color: {e}")
         else:
-            print(f"No hay color guardado válido")
-        
+            print("No hay color guardado válido")
+
         # Restaurar tema guardado
         saved_theme = perfil.get("tema_preferido")
-        
+
         if saved_theme and saved_theme in THEME_NAMES:
             try:
                 theme_idx = THEME_NAMES.index(saved_theme)
                 self.themeDrop.index = theme_idx
-                print(f"Tema aplicado")
+                print("Tema aplicado")
             except Exception as e:
                 print(f"Error cargando tema: {e}")
         else:
-            print(f"No hay tema guardado válido")
+            print("No hay tema guardado válido")
 
+        # Restaurar canción guardada (solo texto, SIN auto-reproducir)
         saved_song = perfil.get("cancion_preferida")
 
         if saved_song and isinstance(saved_song, str) and saved_song.strip():
             try:
                 print(f"[Personalization] Cargando canción guardada: {saved_song}")
                 self.musicBox.text = saved_song
-                
-                # Reproducir automáticamente
-                print(f"[Personalization] Reproduciendo canción guardada...")
-                self.PlayMusicFromTextbox()
-                print(f"✓ Canción cargada y reproduciendo")
             except Exception as e:
-                print(f"✗ Error cargando/reproduciendo canción: {e}")
+                print(f"Error cargando canción en textbox: {e}")
+
 
     def EnsureSpotify(self):
         """Inicializa el cliente de Spotify si hace falta."""
@@ -398,7 +501,7 @@ class PersonalizationScene(Scene):
             print(f"[Spotify] Redirect URI: {red}")
 
             if not cid or not csc:
-                print("[Spotify] ❌ Falta SPOTIPY_CLIENT_ID/SECRET en .env")
+                print("[Spotify] Falta SPOTIPY_CLIENT_ID/SECRET en .env")
                 return False
 
             try:
@@ -413,7 +516,7 @@ class PersonalizationScene(Scene):
                 )
                 print("[Spotify] ✓ Cliente inicializado correctamente")
             except Exception as e:
-                print(f"[Spotify] ❌ Error al inicializar: {e}")
+                print(f"[Spotify] Error al inicializar: {e}")
                 return False
         
         return True
@@ -504,7 +607,7 @@ class PersonalizationScene(Scene):
             self.PlayMusicFromTextbox()
 
         if self.changePhotoBtn.wasClicked(event):
-            pass
+            self._select_new_avatar() 
 
         if self.muteBtn.wasClicked(event):
             if not self.music_muted:
@@ -554,86 +657,210 @@ class PersonalizationScene(Scene):
     def draw(self, s):
         s.fill(self.theme_bg)
 
+        # Títulos
         s.blit(self.title_font_big.render("Personalization", True, self.theme_fg), (350, 80))
         s.blit(self.title_font_big.render("Profile", True, self.theme_fg), (BASE_W//2 + 325, 80))
 
+        # Botón Save
         self.returnBtn.draw(s)
 
-        self.f_nombre.draw(s)
-        self.f_ap1.draw(s)
-        self.f_ap2.draw(s)
-        self.f_usuario.draw(s)
-        self.f_email.draw(s)
-        self.f_tel.draw(s)
+        # Campos de texto (InfoField)
+        info_fields = [
+            self.f_nombre, self.f_ap1, self.f_ap2,
+            self.f_usuario, self.f_email, self.f_tel,
+            self.colorHexField,
+        ]
+
+        for f in info_fields:
+            f.draw(s)
+
+        # Dropdown de hobbie
         self.hobbyDrop.draw(s)
 
+        # Caja de música (TextBox)
         self.musicBox.draw(s, deltaTime=0)
+
+
+        # Borde adaptativo para campos de texto y Background Color
+        border_color = mul(self.theme_ui, 0.88)
+        for f in info_fields:
+            try:
+                pygame.draw.rect(s, border_color, f.rect, width=2, border_radius=8)
+            except Exception:
+                pass
+
+        # Borde adaptativo para la caja de música
+        try:
+            pygame.draw.rect(s, border_color, self.musicBox.rect, width=2, border_radius=8)
+        except Exception:
+            pass
+
+        # Título "Music" encima de la caja, sin encimarse con el contenido
         title_font = MakeTitleFont()
-        t = title_font.render("Music", True, self.theme_fg)
-        s.blit(t, (self.musicBox.rect.x + 20, self.musicBox.rect.y - t.get_height() + 45))
-        
+        music_title = title_font.render("Music", True, self.theme_fg)
+        music_label_x = self.musicBox.rect.x + 10
+        music_label_y = self.musicBox.rect.y - music_title.get_height() - 6
+        s.blit(music_title, (music_label_x, music_label_y))
+
+        # Botones de música
         self.muteBtn.draw(s)
         self.searchBtn.draw(s)
 
+        # Dropdown de tema, campo de color y rueda de color
         self.themeDrop.draw(s)
         self.colorHexField.draw(s)
         self.colorWheel.draw(s)
 
+        # Avatar y botón para cambiar foto
         self.DrawAvatar(s, self.avatar_pos, self.avatar_r, self.user.get("foto"))
         self.changePhotoBtn.draw(s)
 
-    # Dibuja el avatar del usuario
-    def DrawAvatar(self, s, center, r, image_path):
-        pygame.draw.circle(s, (210, 230, 255), center, r)
-        pygame.draw.circle(s, (180, 200, 230), center, r, width=2)
-        if image_path:
+        # Botón de flecha de los dropdowns: más oscuro, como los otros botones
+        btn_base = mul(self.theme_ui, 0.88)
+        btn_hover = mul(self.theme_ui, 0.80)
+        arrow_color = self.theme_fg
+        mouse_pos = pygame.mouse.get_pos()
+
+        for dd in (self.hobbyDrop, self.themeDrop):
             try:
-                img = pygame.image.load(image_path).convert_alpha()
-                img = pygame.transform.smoothscale(img, (2*r, 2*r))
-                rect = img.get_rect(center=center)
-                s.blit(img, rect)
+                rect = dd.arrow_rect
+                hover = rect.collidepoint(mouse_pos)
+                bg = btn_hover if hover else btn_base
+
+                pygame.draw.rect(s, bg, rect, border_radius=dd.border_radius)
+                cx, cy = rect.center
+                pygame.draw.polygon(
+                    s,
+                    arrow_color,
+                    [(cx - 8, cy - 3), (cx + 8, cy - 3), (cx, cy + 7)],
+                )
             except Exception:
                 pass
 
+
+
+
+    # Dibuja el avatar del usuario
+    def DrawAvatar(self, s, center, r, image_path):
+        # Fondo circular del avatar
+        pygame.draw.circle(s, (210, 230, 255), center, r)
+        pygame.draw.circle(s, (180, 200, 230), center, r, width=2)
+
+        # Normalizar la ruta: puede venir como string o como dict 
+        img_path = None
+        if isinstance(image_path, str):
+            img_path = image_path
+        elif isinstance(image_path, dict):
+            p = image_path.get("path")
+            if isinstance(p, str):
+                img_path = p
+
+        if not img_path:
+            return
+
+        # Recortar la imagen a círculo
+        try:
+            size = 2 * r
+            original = pygame.image.load(img_path).convert_alpha()
+            scaled = pygame.transform.smoothscale(original, (size, size))
+
+            avatar_surf = pygame.Surface((size, size), pygame.SRCALPHA)
+            avatar_surf.blit(scaled, (0, 0))
+
+            mask = pygame.Surface((size, size), pygame.SRCALPHA)
+            pygame.draw.circle(mask, (255, 255, 255, 255), (r, r), r)
+
+            avatar_surf.blit(mask, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+
+            rect = avatar_surf.get_rect(center=center)
+            s.blit(avatar_surf, rect)
+            return
+        except Exception as e:
+            print(f"[DrawAvatar] Error recortando avatar a círculo: {e}")
+
+        # Si algo sale mal, al menos dibuja la imagen cuadrada 
+        try:
+            img = pygame.image.load(img_path).convert_alpha()
+            img = pygame.transform.smoothscale(img, (2 * r, 2 * r))
+            rect = img.get_rect(center=center)
+            s.blit(img, rect)
+        except Exception as e:
+            print(f"[DrawAvatar] Error cargando avatar (fallback) desde {img_path}: {e}")
+            # Dejamos solo el círculo de fondo
+            return
+
+
+    def _select_new_avatar(self):  
+        """Permite elegir una nueva foto desde el sistema de archivos."""  
+        if not _TK_OK:  
+            print("[Personalization] tkinter no disponible, no se puede abrir el selector.")  
+            return  
+        try:  
+            root = _tk.Tk()  
+            root.withdraw()  
+            filetypes = [  
+                ("Imágenes", "*.png;*.jpg;*.jpeg;*.bmp;*.gif"),  
+                ("Todos los archivos", "*.*"),  
+            ]  
+            path = _fd.askopenfilename(title="Selecciona tu foto de perfil", filetypes=filetypes)  
+            root.destroy()  
+        except Exception as e:  
+            print(f"[Personalization] Error abriendo selector de archivos: {e}")  
+            path = ""  
+ 
+        if path and os.path.exists(path):  
+            self.user["foto"] = path  
+            self.avatar_path = path  
+            self.avatar_dirty = True  
+            print(f"[Personalization] Nuevo avatar seleccionado: {path}")  
+
     # Aplica los colores del tema a los elementos UI
+        # Aplica los colores del tema a los elementos UI
+        # Aplica los colores del tema a los elementos UI
     def ApplyTheme(self):
+        # Campos de texto (InfoField)
         info_fields = [
             self.f_nombre, self.f_ap1, self.f_ap2,
             self.f_usuario, self.f_email, self.f_tel,
             self.colorHexField
         ]
 
+        # Bordes más claros, casi como los botones
         for f in info_fields:
             f.bg = self.theme_ui
             f.text_color = self.theme_fg
             f.title_color = self.theme_fg
-            f.border_color = mul(self.theme_ui, 0.65)
+            f.border_color = mul(self.theme_ui, 0.88)
 
-        # Dropdowns
+        # Dropdowns: caja más clara, botón (parte derecha) más oscuro tipo botón normal
         def PaintDropdowns(dd):
-            dd.color_bg = self.theme_ui
-            dd.color_hover = mul(self.theme_ui, 0.95)
+            box_bg = mul(self.theme_ui, 1.05)      # caja principal un poco más clara
+            box_hover = mul(box_bg, 0.97)
+            border = mul(self.theme_ui, 0.88)      # borde similar al color de botones
+
+            dd.color_bg = box_bg
+            dd.color_hover = box_hover
             dd.color_text = self.theme_fg
             dd.title_color = self.theme_fg
-            dd.border_color = mul(self.theme_ui, 0.75)
-            dd.arrow_color = self.theme_fg
-            dd.button_bg = mul(self.theme_ui, 0.92)
-            dd.button_hover = mul(self.theme_ui, 0.88)
+            dd.color_border = border
 
         PaintDropdowns(self.hobbyDrop)
         PaintDropdowns(self.themeDrop)
-        self.refresh_user()
 
-        # TextBox de Música
+        # TextBox de Música: colores adaptativos, texto con theme_fg
         self.musicBox.inactiveColor = self.theme_ui
         self.musicBox.activeColor = mul(self.theme_ui, 0.92)
         self.musicBox.textColor = self.theme_fg
-        self.musicBox.currentColor = self.musicBox.activeColor if self.musicBox.isActive else self.musicBox.inactiveColor
+        self.musicBox.currentColor = (
+            self.musicBox.activeColor
+            if self.musicBox.isActive
+            else self.musicBox.inactiveColor
+        )
 
-        # Botones
+        # Botones: tonos oscuros, como referencia para el botón de los dropdown
         def PaintButton(b):
             btn_base = mul(self.theme_ui, 0.88)
-            btn_hover = mul(self.theme_ui, 0.82)
+            btn_hover = mul(self.theme_ui, 0.80)
 
             if hasattr(b, "normalColor"): b.normalColor = btn_base
             if hasattr(b, "overColor"): b.overColor = btn_hover
@@ -646,8 +873,3 @@ class PersonalizationScene(Scene):
 
         for b in [self.searchBtn, self.muteBtn, self.changePhotoBtn, self.returnBtn]:
             PaintButton(b)
-
-
-
-
-
