@@ -1,9 +1,7 @@
 import pygame
-from SceneManager import SceneManager
 from LoginScene import LoginScene
 from PersonalizationScene import PersonalizationScene
-
-"""Archivo principal del programa. Gestiona la ventana, escenas y ciclo principal del juego."""
+from SceneManager import SceneManager
 
 pygame.init()
 

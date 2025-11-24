@@ -5,6 +5,9 @@ export type RegisterPerfil = {
   fecha_nacimiento: string;
   pais: string;
   hobbie: string;
+  color_preferido?: string;  
+  tema_preferido?: string;   
+  cancion_preferida?: string; 
 };
 
 export type RegisterCuenta = {
@@ -25,6 +28,8 @@ export type RegisterReq = {
   cuenta: RegisterCuenta;
   pago: RegisterPago;
   acepto_tyc: boolean;
+  avatar_b64?: string; // imagen en base64 desde el cliente
+  avatar_mime?: string; // ej. "image/png"
 };
 
 export type UserRecord = {
@@ -39,6 +44,10 @@ export type UserRecord = {
   updatedAt: string;
   resetTokenHash?: string;
   resetExpires?: number;
+  avatar?: null | {
+    path: string;   // ruta a archivo cifrado (JSON con nonce/ct)
+    mime: string;
+  };
 };
 
 export type DBShape = { usuarios: UserRecord[] };

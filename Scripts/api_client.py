@@ -14,6 +14,19 @@ def login_user(username_or_email: str, password: str, timeout: float = 5.0) -> d
     r = requests.post(url, json=body, timeout=timeout)
     return r.json()
 
+def get_user(username: str, timeout: float = 3.0) -> dict: # Obtiene los datos del usuario por su nombre de usuario
+    try:
+        from api_client import BASE_URL  
+    except Exception:
+        BASE_URL = "http://localhost:3007"
+
+    try:
+        r = requests.get(f"{BASE_URL}/users/{username}", timeout=timeout)
+        data = r.json()
+        return data if isinstance(data, dict) else {}
+    except Exception:
+        return {}
+    
 def request_password_reset(email: str) -> str | None:
     r = requests.post(f"{BASE_URL}/auth/request-reset", json={"email": email})
     data = r.json()
@@ -27,4 +40,21 @@ def confirm_password_reset(email: str, token: str, new_password: str) -> bool: #
     data = r.json()
     return data.get("ok", False)
 
-
+def update_user_preferences(username: str, color: str = None, theme: str = None, song: str = None, timeout: float = 5.0) -> dict:
+    """Actualiza las preferencias del usuario (color, tema, canción)"""
+    url = f"{BASE_URL}/users/{username}/preferences"
+    payload = {}
+    
+    if color is not None:
+        payload["color"] = color
+    if theme is not None:
+        payload["theme"] = theme
+    if song is not None:
+        payload["song"] = song
+    
+    try:
+        r = requests.patch(url, json=payload, timeout=timeout)
+        return r.json()
+    except Exception as e:
+        print(f"Error actualizando preferencias: {e}")
+        return {"ok": False, "error": str(e)}
