@@ -22,5 +22,5 @@
     // Útiles
     "resolveJsonModule": true
   },
-  "include": ["src"]
+  "include": ["src", "numjs.d.ts", "types.d.ts"]
 }

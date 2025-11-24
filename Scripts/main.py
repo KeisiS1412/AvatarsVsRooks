@@ -3,8 +3,6 @@ from LoginScene import LoginScene
 from PersonalizationScene import PersonalizationScene
 from SceneManager import SceneManager
 
-"""Archivo principal del programa. Gestiona la ventana, escenas y ciclo principal del juego."""
-
 pygame.init()
 
 BASE_W, BASE_H = 1920, 1080  # Resolución base

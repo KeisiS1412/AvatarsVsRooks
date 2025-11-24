@@ -40,6 +40,9 @@ export type PublicPerfil = {
   hobbie?: string;
   cumple?: string;
   foto?: string;
+  color_preferido?: string;  
+  tema_preferido?: string;
+  cancion_preferida?: string;  // ← AGREGAR
 };
 
 export type PublicUser = {
@@ -76,6 +79,9 @@ function toPublicUser(u: any): PublicUser | null {
       hobbie: p.hobbie ?? p.hobby,
       cumple: p.cumple ?? p.fecha_nacimiento ?? p.birthday,
       foto: p.foto ?? u.avatar,
+      color_preferido: p.color_preferido,  // ← AGREGAR
+      tema_preferido: p.tema_preferido,
+      cancion_preferida: p.cancion_preferida, 
     },
   };
 }

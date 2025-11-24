@@ -16,6 +16,7 @@ from projectiles.Sword import Sword
 from Enemies.LumberjackEnemy import Lumberjack
 from Enemies.CannibalEnemy import Cannibal
 from towers.TowerFactory import TowerFactory
+from Selector import Selector
 
 
 class Matrix:
@@ -73,8 +74,8 @@ class Matrix:
         # --- Niveles / tiempos por nivel (ms) ---
         base_ms = 60 * 1000  # 60s
         lvl1 = base_ms
-        lvl2 = int(lvl1 * 1.25)         # +25% del anterior
-        lvl3 = int(lvl2 * 1.25)         # +25% del anterior
+        lvl2 = int(base_ms * 1.25) # +25% del anterior
+        lvl3 = int(lvl2 * 1.25)        # +25% del anterior
         self.levelDurations = [lvl1, lvl2, lvl3]  # tres niveles antes de cambiar escena
         self.levelIndex = 0                 # índice actual (0 = primer nivel)
         self.levelTimeAccumulator = 0       # ms transcurridos en el nivel actual
@@ -121,6 +122,16 @@ class Matrix:
             "cannibal": {"timer": random.uniform(11, 16), "min": 11, "max": 16, "maxSim": 2},
         }
 
+        cell_w, cell_h = self.cellSize
+        img_x, img_y = self.imagePos
+        img_w, img_h = self.matrixImage.get_width(), self.matrixImage.get_height()
+
+        self.selector = Selector(
+            self.cellSize,
+            xlimits=(img_x + cell_w, img_x + img_w - (2 * cell_w)),   # excluye primera/última columna
+            ylimits=(img_y + cell_h, img_y + img_h - (2 * cell_h))    # excluye primera/última fila
+)
+
     def createMatrix(self):
         self.matrix = [[0 for _ in range(self.COLUMNS)] for _ in range(self.ROWS)]
 
@@ -142,6 +153,7 @@ class Matrix:
                 tower.draw_hp_bar(screen)
         # HUD en la parte derecha, centrado verticalmente
         self._draw_hud(screen)
+        self.selector.draw(screen)
 
     def _draw_hud(self, screen):
         """Dibuja panel en la parte derecha (centrado vertical) con:
@@ -306,28 +318,26 @@ class Matrix:
                 # limpiar rooks/avatars/enemigos/proyectiles al entrar al nuevo nivel
                 self.clear_units()
             else:
-                        # ya pasamos el último nivel -> cambiar de escena (una sola vez)
+                # ya pasamos el último nivel -> cambiar de escena (una sola vez)
                 if not self.sceneChanged:
                     self.sceneChanged = True
                     print("[Matrix] Todos los niveles completados -> cambiando escena")
                     self.clear_units()
 
-                    # ==============================
-                    # 🔹 OBTENER DATOS DESDE SPOTIFY
-                    # ==============================
+                try:
                     from MusicSpotify import obtener_datos_cancion_actual
                     from Algoritmo import calcular_puntaje_ajustado
-                    from pantalla import pantalla_victoria
+                    from session import get_current_user
+                    from pantalla import pantalla_victoria     # ORIGINAL
+                    from Salon_fama import guardar_en_fama
 
+                    # Obtener datos de Spotify
                     tempo, popularidad = obtener_datos_cancion_actual()
 
-                    # ==============================
-                    # 🔹 CALCULAR PUNTAJE
-                    # ==============================
                     if tempo and popularidad:
-                        avatars_matados = len(getattr(self, "enemies", []))  # enemigos destruidos
-                        puntos_avatar = int(self.money)                      # dinero como puntaje base
-                        limite_maximo = 1000                                 # límite máximo arbitrario
+                        avatars_matados = len(getattr(self, "enemies", []))
+                        puntos_avatar = int(self.money)
+                        limite_maximo = 1000
 
                         puntaje = calcular_puntaje_ajustado(
                             tempo,
@@ -341,15 +351,22 @@ class Matrix:
                         puntaje = 0
                         print("[Matrix] No se pudieron obtener datos de Spotify, puntaje = 0")
 
-                    # ==============================
-                    # 🔹 MOSTRAR PANTALLA DE VICTORIA
-                    # ==============================
-                    try:
-                        pantalla_victoria(username="Jugador", puntaje=puntaje)
-                    except Exception as e:
-                        print(f"[Matrix] Error al mostrar pantalla de victoria: {e}")
+                    # ============================
+                    # GUARDAR EN JSON LOCAL
+                    # ============================
+                    user = get_current_user()
+                    username = user.get("username", "Jugador")
+                    pantalla_victoria(username, puntaje)
 
-                break
+                    # guardar en JSON después
+                    guardar_en_fama(username, puntaje)
+
+                except Exception as e:
+                    print("[Matrix] ERROR en cálculo de puntaje final:", e)
+
+                return
+
+
 
         # --- Si ya cambiamos escena, evitamos spawnear enemigos nuevos ---
         if self.sceneChanged:
@@ -449,6 +466,11 @@ class Matrix:
                 self.add_money(coin.value)
                 return coin.value
         return 0
+    
+    def collectCoins(self):
+        for coin in list(self.coins):
+            self.coins.remove(coin)
+            self.add_money(coin.value)
 
     
     def addCoin(self, val=None):
@@ -677,14 +699,16 @@ class Matrix:
         self.matrix[row][col] = 0
 
     def onEnemyReachedTop(self, enemy):
-        if hasattr(self, "onGameOver"):
-            self.onGameOver()
-        else:
-            try:
-                from pantalla import pantalla_derrota
-                pantalla_derrota(username="Jugador")
-            except Exception as e:
-                print(f"[Matrix] Error al mostrar pantalla de derrota: {e}")
+        from pantalla import pantalla_derrota   # llamada directa
+        from session import get_current_user
+
+        user = get_current_user()
+        username = user.get("username", "Jugador")
+
+        print("[Matrix] ¡Enemigo llegó arriba! -> GAME OVER")
+        pantalla_derrota(username)   # ⬅ FULLSCREEN REAL, sin escalado
+
+
 
 
     def spawnEnemy(self, enemyType):
@@ -948,3 +972,28 @@ class Matrix:
             except Exception:
                 pass
         print("[Matrix] clear_units: torres/enemigos/rooks/avatars/proyectiles limpiados")
+
+    def shoot_from_selected_tower(self):
+        """Dispara el proyectil de la torre seleccionada hacia abajo (usa los métodos existentes)."""
+        pos = self.calculateCell(self.selector.position)
+        if not pos:
+            return
+
+        row, col = pos
+        tower = self.towers.get((row, col))
+        if not tower:
+            return
+
+        # Dispara según el tipo de torre
+        if isinstance(tower, FireTower):
+            self._spawn_fireball_below(tower)
+            print("[Matrix] Disparo manual de FireTower")
+        elif isinstance(tower, WaterTower):
+            self._spawn_waterdrop_below(tower)
+            print("[Matrix] Disparo manual de WaterTower")
+        elif isinstance(tower, SandTower):
+            self._spawn_sandshard_below(tower)
+            print("[Matrix] Disparo manual de SandTower")
+        elif isinstance(tower, RockTower):
+            self._spawn_rock_below(tower)
+            print("[Matrix] Disparo manual de RockTower")

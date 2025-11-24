@@ -6,6 +6,7 @@ from GameModeScene import GameModeScene
 from recoverPasswordScene import recoverPasswordScene
 from PersonalizationScene import PersonalizationScene
 from GameScene import GameScene
+from FacialLoginScene import FacialLoginScene, FacialRegisterScene
 
 class SceneManager:
     """Gestiona las diferentes escenas del juego y controla la escena activa."""
@@ -24,26 +25,32 @@ class SceneManager:
             "game_mode": GameModeScene(font, res, self.changeScene, self), 
             "recoverPassword" : recoverPasswordScene(font, res, self.changeScene),
             "personalization": PersonalizationScene(font, res, self.changeScene),
-            "game": GameScene(font, res, self.changeScene)
+            "game": GameScene(font, res, self.changeScene),
+            "facial_login": FacialLoginScene(font, res, self.changeScene),
+            "facial_register": FacialRegisterScene(font, res, self.changeScene),
         }
 
         # Escena inicial
-        self.changeScene("login")
+        self.changeScene("game_mode")
 
     def changeScene(self, name):
-        self.currentScene = self.scenes[name]
-        try:
-            if hasattr(self.currentScene, "on_enter"):
-                self.currentScene.on_enter()
-            elif hasattr(self.currentScene, "refresh_user"):
-                self.currentScene.refresh_user()
-        except Exception:
-            pass
 
+        if name in self.scenes:
+            self.currentScene = self.scenes[name]
+
+        else:
+            raise KeyError(f"Scene '{name}' not found")
+
+        # Llamar on_scene_enter si existe
+        if hasattr(self.currentScene, 'on_scene_enter'):
+            try:
+                self.currentScene.on_scene_enter()
+            except Exception as e:
+                print(f"Error en on_scene_enter: {e}")
 
     def draw(self, screen):
         self.currentScene.draw(screen)
-
+        
     def update(self, deltaTime):
         self.currentScene.update(deltaTime)
 

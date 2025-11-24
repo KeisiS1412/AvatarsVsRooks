@@ -2,6 +2,7 @@ import pygame
 import threading
 from Scene import Scene
 from CalendarTextBox import CalendarTextBox
+import unicodedata
 from Buttons import Button
 from TextBoxes import TextBox
 import base64, mimetypes
@@ -68,6 +69,10 @@ class RegisterScene(Scene):
         # Colores de aro
         self.COLOR_RED = (218, 41, 28)
         self.COLOR_DARK = (32, 32, 32)
+
+        self.blocklist = self._load_blocklist("malas_palabras.txt")
+        self._last_safe_username = ""   # guarda el último username permitido
+        self.usernameError = "" 
 
         # Carga por defecto: PRO.png -> photo.png (fallback)
         default_avatar_path = "Assets/photo.png"
@@ -307,14 +312,67 @@ class RegisterScene(Scene):
 
         if self.confirmError == "" and cf and pw and (cf != pw):
             self.confirmError = "Debe coincidir con la contraseña."
+    
+
+    def _normalize(self, s: str) -> str:
+        """Minúsculas + sin acentos + solo espacios simples."""
+        if not isinstance(s, str):
+            return ""
+        s = s.strip().lower()
+        # Quita acentos
+        nfkd = unicodedata.normalize("NFKD", s)
+        s = "".join(ch for ch in nfkd if not unicodedata.combining(ch))
+        # Compacta espacios
+        s = " ".join(s.split())
+        return s
+
+    def _load_blocklist(self, path: str):
+        """Lee archivo de palabras prohibidas. Ignora líneas vacías o que empiezan con #."""
+        words = set()
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                for line in f:
+                    t = line.strip()
+                    if not t or t.startswith("#"):
+                        continue
+                    words.add(self._normalize(t))
+        except Exception:
+            # Si no existe o falla, deja set vacío para no romper la app
+            words = set()
+        return words
+
+    def _contains_blocked(self, username: str) -> bool:
+        """True si el username (normalizado) contiene alguna palabra prohibida como subcadena."""
+        u = self._normalize(username or "")
+        if not u or not self.blocklist:
+            return False
+        # Revisa por subcadena para cubrir casos como "p3nd3jo", "zorra123"
+        for bad in self.blocklist:
+            if bad and bad in u:
+                return True
+        return False
+
+    def _set_text(self, box, text: str):
+        """Setea el texto del TextBox de forma tolerante a tu implementación."""
+        if hasattr(box, "setText"):
+            try:
+                box.setText(text)
+                return
+            except Exception:
+                pass
+        if hasattr(box, "text"):
+            try:
+                box.text = text
+            except Exception:
+                pass
+
 
     # ---------- Eventos ----------
     def handleEvent(self, event):
         if event.type == REGISTER_SUCCESS:
             self.switchScene("login")
             return
-
-        # Click en el avatar → abrir selector
+        
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             if self.photo_rect.collidepoint(event.pos):
                 self._select_new_avatar()
@@ -327,9 +385,16 @@ class RegisterScene(Scene):
         for button in self.buttonsList:
             if button.wasClicked(event):
                 if button == self.registerButton:
+                    username = self._read_value(self.fields[6]).strip()
                     self._validate_passwords()
+                    if self._contains_blocked(username):
+                        self.usernameError = "El nombre de usuario contiene palabras no permitidas."
+                        self.register_message = self.usernameError
+                        continue
+                    else:
+                        self.usernameError = ""
                     if self.passwordError or self.confirmError:
-                        self.register_message = (self.passwordError or self.confirmError)
+                        self.register_message = self.passwordError or self.confirmError
                         continue
 
                     perfil = {
@@ -341,7 +406,7 @@ class RegisterScene(Scene):
                         "hobbie":            self._read_value(self.fields[5]),
                     }
                     cuenta = {
-                        "username":          self._read_value(self.fields[6]),
+                        "username":          username,
                         "email":             self._read_value(self.fields[7]),
                         "password":          getattr(self.passwordBox, "text", ""),
                         "password_confirm":  getattr(self.confirmBox, "text", "")
@@ -368,9 +433,9 @@ class RegisterScene(Scene):
                         "perfil": perfil,
                         "cuenta": cuenta,
                         "pago":   pago,
-                        "acepto_tyc": False if self.checkBox.clicked else True,
-                        "avatar_b64": avatar_b64,       # <--- NUEVO
-                        "avatar_mime": avatar_mime   
+                        "acepto_tyc": self.checkBox.clicked,
+                        "avatar_b64": avatar_b64,
+                        "avatar_mime": avatar_mime
                     }
 
                     self.register_message = "Guardando..."
@@ -393,24 +458,43 @@ class RegisterScene(Scene):
                                 else:
                                     self.register_message = f"Error en {field}: {err}"
                         except Exception:
-                            self.register_message = f"Error de red:"
+                            self.register_message = "Error de red."
+
                     threading.Thread(target=_do_register, daemon=True).start()
 
+   
                 elif button == self.loginButton:
                     self.switchScene("login")
+
+
                 elif button == self.checkBox and self.checkBox.clicked:
-                    self.openPdf("Assets\TerminosCondicionesTecnolators.pdf")
+                    self.openPdf("Assets\\TerminosCondicionesTecnolators.pdf")
+
                 elif button == self.eyePwd:
                     self.passwordBox.set_show_password(self.eyePwd.clicked)
                 elif button == self.eyeConfirm:
                     self.confirmBox.set_show_password(self.eyeConfirm.clicked)
 
-                if self.termsAndConditions.wasClicked(event):
-                    self.openPdf("Assets\TerminosCondicionesTecnolators.pdf")
-                if self.helpButton.wasClicked(event):
-                    self.switchScene("Help")
-                if self.aboutButton.wasClicked(event):
-                    self.switchScene("About")
+                elif button == self.faceRecognitionButton:
+                    from Reconocimientofacial import ReconocimientoFacialLBPH
+
+                    username = self._read_value(self.fields[6]).strip()
+                    if not username:
+                        self.register_message = "Primero ingresa un nombre de usuario."
+                        return
+
+                    def _face_register():
+                        recog = ReconocimientoFacialLBPH(usuario_actual=username)
+                        recog.registrar_rostro()
+                        self.register_message = "Rostro registrado exitosamente."
+
+                    threading.Thread(target=_face_register, daemon=True).start()
+            if self.termsAndConditions.wasClicked(event):
+                self.openPdf("Assets\\TerminosCondicionesTecnolators.pdf")
+            if self.helpButton.wasClicked(event):
+                self.switchScene("Help")
+            if self.aboutButton.wasClicked(event):
+                self.switchScene("About")
 
     def update(self, deltaTime):
         mousePos = pygame.mouse.get_pos()
@@ -419,6 +503,25 @@ class RegisterScene(Scene):
                 box.update(deltaTime)
         for button in self.buttonsList:
             button.update(mousePos)
+        
+                # --- Bloqueo en vivo para USERNAME (NUEVO) ---
+        try:
+            username_box = self.fields[6]  # "Usuario"
+            current_username = self._read_value(username_box)
+            if self._contains_blocked(current_username):
+                # Revierte al último seguro
+                self._set_text(username_box, self._last_safe_username)
+                self.usernameError = "El nombre de usuario contiene palabras no permitidas."
+            else:
+                # Actualiza último seguro
+                self._last_safe_username = current_username or ""
+                # Limpia error solo si no hay bloqueo
+                if not self.passwordError and not self.confirmError:
+                    self.usernameError = ""
+        except Exception:
+            # Si algo falla, no traba el loop
+            pass
+
 
     def draw(self, screen):
         # Panel
@@ -478,6 +581,11 @@ class RegisterScene(Scene):
         if self.register_message:
             msg_surf = self.errorFont.render(self.register_message, True, self.errorColor)
             screen.blit(msg_surf, (self.registerButton.rect.x, self.registerButton.rect.bottom + 12))
+        
+        if self.usernameError:
+            ubox = self.fields[6]
+            txt = self.errorFont.render(self.usernameError, True, self.errorColor)
+            screen.blit(txt, (ubox.rect.x, ubox.rect.bottom + 5))
 
     def openPdf(self, path):
         systemType = platform.system()

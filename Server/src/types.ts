@@ -5,6 +5,9 @@ export type RegisterPerfil = {
   fecha_nacimiento: string;
   pais: string;
   hobbie: string;
+  color_preferido?: string;  
+  tema_preferido?: string;   
+  cancion_preferida?: string; 
 };
 
 export type RegisterCuenta = {
