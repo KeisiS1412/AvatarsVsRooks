@@ -16,6 +16,7 @@ from projectiles.Sword import Sword
 from Enemies.LumberjackEnemy import Lumberjack
 from Enemies.CannibalEnemy import Cannibal
 from towers.TowerFactory import TowerFactory
+from Selector import Selector
 
 
 class Matrix:
@@ -121,6 +122,16 @@ class Matrix:
             "cannibal": {"timer": random.uniform(11, 16), "min": 11, "max": 16, "maxSim": 2},
         }
 
+        cell_w, cell_h = self.cellSize
+        img_x, img_y = self.imagePos
+        img_w, img_h = self.matrixImage.get_width(), self.matrixImage.get_height()
+
+        self.selector = Selector(
+            self.cellSize,
+            xlimits=(img_x + cell_w, img_x + img_w - (2 * cell_w)),   # excluye primera/última columna
+            ylimits=(img_y + cell_h, img_y + img_h - (2 * cell_h))    # excluye primera/última fila
+)
+
     def createMatrix(self):
         self.matrix = [[0 for _ in range(self.COLUMNS)] for _ in range(self.ROWS)]
 
@@ -142,6 +153,7 @@ class Matrix:
                 tower.draw_hp_bar(screen)
         # HUD en la parte derecha, centrado verticalmente
         self._draw_hud(screen)
+        self.selector.draw(screen)
 
     def _draw_hud(self, screen):
         """Dibuja panel en la parte derecha (centrado vertical) con:
@@ -346,9 +358,8 @@ class Matrix:
                     user = get_current_user()
                     username = user.get("username", "Jugador")
                     guardar_en_fama(username, puntaje)
-
-                    # Ahora sí abrir pantalla
                     pantalla_victoria(username, puntaje)
+                    
 
                 except Exception as e:
                     print("[Matrix] ERROR en cálculo de puntaje final:", e)
@@ -455,6 +466,11 @@ class Matrix:
                 self.add_money(coin.value)
                 return coin.value
         return 0
+    
+    def collectCoins(self):
+        for coin in list(self.coins):
+            self.coins.remove(coin)
+            self.add_money(coin.value)
 
     
     def addCoin(self, val=None):
@@ -826,6 +842,21 @@ class Matrix:
                 except Exception:
                     pass
 
+    def shoot_from_selected_tower(self):
+        sel_row, sel_col = self.selector.get_selected_cell(self.cellSize, self.imagePos)
+        tower = self.towers.get((sel_row, sel_col))
+        if not tower or not getattr(tower, "is_alive", True):
+            return
+
+        if isinstance(tower, FireTower):
+            self._spawn_fireball_below(tower)
+        elif isinstance(tower, WaterTower):
+            self._spawn_waterdrop_below(tower)
+        elif isinstance(tower, SandTower):
+            self._spawn_sandshard_below(tower)
+        elif isinstance(tower, RockTower):
+            self._spawn_rock_below(tower)
+
     def get_remaining_time(self):
         """
         Devuelve segundos restantes del nivel actual.
@@ -916,7 +947,7 @@ class Matrix:
                         self.matrix[r][c] = 0
                 except Exception:
                     pass
-        self.avatarsList.clear()
+        self.avatarsList.clear() 
 
         # Proyectiles
         try:
@@ -939,20 +970,3 @@ class Matrix:
             self.enemy_projectiles = []
 
         # Limpia la matriz de referencias no-int (si hay objetos)
-        for r in range(self.ROWS):
-            for c in range(self.COLUMNS):
-                cell = self.matrix[r][c]
-                if cell and not isinstance(cell, int):
-                    self.matrix[r][c] = 0
-
-        # Reset acumuladores y timers de spawn config
-        try:
-            self.enemyAccumulators = {k: 0 for k in self.enemySpawnTimers}
-        except Exception:
-            pass
-        for k, cfg in self.enemyConfigs.items():
-            try:
-                cfg["timer"] = random.uniform(cfg["min"], cfg["max"])
-            except Exception:
-                pass
-        print("[Matrix] clear_units: torres/enemigos/rooks/avatars/proyectiles limpiados")

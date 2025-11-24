@@ -83,6 +83,7 @@ class GameModeScene(Scene):
         # Botones de dificultad
         for button in self.buttons:
             if button.wasClicked(event):
+                self.manager.scenes["game"].client = self.client
                 if button.text == "easy":
                     self.manager.scenes["game"].setDifficulty("easy")
                     self.switchScene("game")

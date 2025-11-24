@@ -37,6 +37,7 @@ if not os.path.exists(ARCHIVO_FAMA):
 from publicationManager import publicationManager
 
 def guardar_en_fama(username, puntaje):
+    print("fama abierto")
     """Guarda el puntaje, limita top 5, y publica SOLO si el top 5 cambia."""
     try:
         with open(ARCHIVO_FAMA, "r", encoding="utf-8") as f:

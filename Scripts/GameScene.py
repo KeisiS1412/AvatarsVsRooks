@@ -4,65 +4,6 @@ from ui.ShopPanel import ShopPanel
 from Matrix import Matrix
 from towers.TowerFactory import TowerFactory
 
-def _mul_color(c, f):  
-    r = max(0, min(255, int(c[0] * f)))  
-    g = max(0, min(255, int(c[1] * f)))  
-    b = max(0, min(255, int(c[2] * f)))  
-    return (r, g, b)  
-
-
-def _hex_to_rgb(hex_str):  
-    if not isinstance(hex_str, str):  
-        return None  
-    h = hex_str.strip().lstrip("#")  
-    if len(h) != 6:  
-        return None  
-    try:  
-        r = int(h[0:2], 16)  
-        g = int(h[2:4], 16)  
-        b = int(h[4:6], 16)  
-        return (r, g, b)  
-    except Exception:  
-        return None  
-
-
-def _pick_fg(bg):  
-    """Devuelve blanco o negro según la luminosidad del fondo."""  
-    r, g, b = bg  
-    lum = 0.2126 * r + 0.7152 * g + 0.0722 * b  
-    return (0, 0, 0) if lum > 140 else (255, 255, 255)  
-
-THEME_NAMES = ["Dark", "Default", "Bright"]  
-THEME_MULTS = [0.45, 1.00, 1.35]  
-
-def _mul_color(c, f):  
-    r = max(0, min(255, int(c[0] * f)))  
-    g = max(0, min(255, int(c[1] * f)))  
-    b = max(0, min(255, int(c[2] * f)))  
-    return (r, g, b)  
-
-def _hex_to_rgb(hex_str):  
-    if not isinstance(hex_str, str):  
-        return None  
-    h = hex_str.strip().lstrip("#")  
-    if len(h) != 6:  
-        return None  
-    try:  
-        r = int(h[0:2], 16)  
-        g = int(h[2:4], 16)  
-        b = int(h[4:6], 16)  
-        return (r, g, b)  
-    except Exception:  
-        return None  
-
-def _lum(c):  
-    r, g, b = c  
-    return 0.2126 * r + 0.7152 * g + 0.0722 * b  
-
-def _is_dark(c):  
-    return _lum(c) < 140  
-
-
 """Escena de juego con matriz, monedas y panel de torres."""
 class GameScene(Scene):
     def __init__(self, font, res, switchSceneCallback):
@@ -76,75 +17,33 @@ class GameScene(Scene):
         self.selectedRook = None
         self.shop = ShopPanel(self.res)
         self.pause = False
-        self.theme_bg = (218, 41, 28)      
-        self.theme_ui = _mul_color(self.theme_bg, 0.88)              
-        self.theme_fg = _pick_fg(self.theme_bg)                       
-        self._load_theme_from_user()        
-
-    def _load_theme_from_user(self):
-        """Carga color y tema desde el usuario en sesión."""
-        try:
-            from session import get_current_user
-            user = get_current_user()
-        except Exception as e:
-            print(f"[GameScene] No se pudo leer usuario para tema: {e}")
-            return
-
-        if not isinstance(user, dict):
-            return
-
-        perfil = user.get("perfil") or {}
-
-        # Color base guardado en Personalization 
-        saved_color = perfil.get("color_preferido")
-        rgb = _hex_to_rgb(saved_color) if saved_color else None
-        if rgb is None:
-            return
-
-        # Tema guardado
-        saved_theme = perfil.get("tema_preferido") or "Default"
-        try:
-            t_index = THEME_NAMES.index(saved_theme)
-        except ValueError:
-            t_index = 1  # Default
-
-        k = THEME_MULTS[t_index]
-
-        base = rgb
-        bg = _mul_color(base, k)
-        ui = _mul_color(bg, 0.75)
-        fg = (255, 255, 255) if _is_dark(ui) else (0, 0, 0)
-
-        self.theme_bg = bg
-        self.theme_ui = ui
-        self.theme_fg = fg
-
-        print(f"[GameScene] Tema aplicado desde usuario: color={saved_color}, tema={saved_theme}, bg={bg}, ui={ui}, fg={fg}")
-
-
-    def on_scene_enter(self):  
-        """Al entrar de nuevo a la escena de juego, recargar el tema por si cambió."""  
-        self._load_theme_from_user()  
+        self.client = None
+        self.connected = False
+        self.state = {"x": 0, "y": 0, "sand": 0, "fire":0, "rock":0, "water":0, "collect":0, "pause":0, "joystickButton":0}
+        self.prevPause = 0
+        self.prevCollect = 0
+        self.prevX = 0
+        self.prevY = 0
+        self.prevArriba = 0
+        self.prevAbajo = 0
+        self.prevIzquierda = 0
+        self.prevDerecha = 0
 
     def draw(self, screen):
-        screen.fill(self.theme_bg)       
-
         self.matrix.draw(screen)
         self.matrix.drawCoins(screen)
         self.shop.draw(screen)
 
         remaining = self.matrix.get_remaining_time()
         time_text = f"Tiempo: {remaining}s"
-        text_surf = self.font.render(time_text, True, self.theme_fg)
-
+        text_surf = self.font.render(time_text, True, (255, 255, 255))
+        
         # Posición: esquina superior derecha
         x = self.res[0] - text_surf.get_width() - 10
         y = 10
         screen.blit(text_surf, (x, y))
-
         if self.pause:
             self.drawPauseMenu(screen)
-
             
 
     def handleEvent(self, event):
@@ -192,18 +91,109 @@ class GameScene(Scene):
                         if self.matrix.money >= cost:
                             self.matrix.money -= cost
                             self.matrix.addRook(event, self.selectedRook)
-        if event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_SPACE:
-                self.pause = not self.pause
-
 
 
 
     def update(self, dt):
+        new_state = self.client.ManageMessages()
+        if new_state and new_state != self.state:
+            self.state = new_state
+            print(self.state)
+        self.handleController(dt)
         if self.pause:
             pass
         else:
             self.matrix.update(dt)
+        
+    
+    def handleController(self, dt):
+        # --- Configuración de sensibilidad ---
+        initial_delay = 500   # tiempo antes de repetir (segundos)
+        repeat_rate = 300    # tiempo entre repeticiones sostenidas (segundos)
+
+        # --- Inicializar variables si no existen ---
+        if not hasattr(self, "x_timer"):
+            self.x_timer = 0
+            self.y_timer = 0
+            self.x_held = False
+            self.y_held = False
+
+        # --- Pausa (flanco 0→1) ---
+        if self.state["pause"] == 1 and self.prevPause == 0:
+            self.pause = not self.pause
+            print("Pausa:", self.pause)
+
+        # --- Recolectar monedas ---
+        if self.state["collect"] == 1 and self.prevCollect == 0:
+            self.matrix.collectCoins()
+
+        # ===============================
+        # --- Movimiento en X ---
+        # ===============================
+        if self.state["x"] != 0:
+            if self.state["x"] != self.prevX:
+                # primer movimiento inmediato
+                self.matrix.selector.moveX(self.state["x"])
+                self.x_timer = 0
+                self.x_held = True
+            else:
+                self.x_timer += dt
+                if self.x_held:
+                    if self.x_timer >= initial_delay:
+                        # después del retardo inicial, mover cada repeat_rate
+                        steps = int(self.x_timer // repeat_rate)
+                        if steps > 0:
+                            self.matrix.selector.moveX(self.state["x"])
+                            self.x_timer -= steps * repeat_rate
+        else:
+            self.x_timer = 0
+            self.x_held = False
+
+        # ===============================
+        # --- Movimiento en Y ---
+        # ===============================
+        if self.state["y"] != 0:
+            if self.state["y"] != self.prevY:
+                self.matrix.selector.moveY(self.state["y"])
+                self.y_timer = 0
+                self.y_held = True
+            else:
+                self.y_timer += dt
+                if self.y_held:
+                    if self.y_timer >= initial_delay:
+                        steps = int(self.y_timer // repeat_rate)
+                        if steps > 0:
+                            self.matrix.selector.moveY(self.state["y"])
+                            self.y_timer -= steps * repeat_rate
+        else:
+            self.y_timer = 0
+            self.y_held = False
+
+        # --- Posición del selector ---
+        pos = self.matrix.calculateCell(self.matrix.selector.position)
+
+        # --- Colocar torres ---
+        if self.state["fire"] == 1 and self.prevArriba == 0:
+            self.matrix.try_place_tower("fire", pos[0], pos[1])
+        if self.state["water"] == 1 and self.prevAbajo == 0:
+            self.matrix.try_place_tower("water", pos[0], pos[1])
+        if self.state["sand"] == 1 and self.prevIzquierda == 0:
+            self.matrix.try_place_tower("sand", pos[0], pos[1])
+        if self.state["rock"] == 1 and self.prevDerecha == 0:
+            self.matrix.try_place_tower("rock", pos[0], pos[1])
+        if self.state.get("joystickButton", 0) == 1 and getattr(self, "prevJoystickButton", 0) == 0:
+            self.matrix.shoot_from_selected_tower()
+
+        # --- Actualizar previos ---
+        self.prevPause = self.state["pause"]
+        self.prevCollect = self.state["collect"]
+        self.prevX = self.state["x"]
+        self.prevY = self.state["y"]
+        self.prevArriba = self.state["fire"]
+        self.prevAbajo = self.state["water"]
+        self.prevIzquierda = self.state["sand"]
+        self.prevDerecha = self.state["rock"]
+        self.prevJoystickButton = self.state.get("joystickButton", 0)
 
     def handleGameOver(self):
         self.switchScene("login")
@@ -214,18 +204,17 @@ class GameScene(Scene):
 
     def drawPauseMenu(self, screen):
         overlay = pygame.Surface((300, 150), pygame.SRCALPHA)
-        overlay.fill((0, 0, 0, 180))
+        overlay.fill((0, 0, 0, 180))  # RGBA (negro con transparencia)
         screen.blit(overlay, (self.res[0]//2 -150, self.res[1]//2-75))
-
         rect = pygame.Rect(200, 150, 200, 100)
         rect.center = (self.res[0]//2, self.res[1]//2)
+        pygame.draw.rect(screen, (200, 200, 200), rect, border_radius=10)
+        pygame.draw.rect(screen, (255, 255, 255), rect, 3, border_radius=10)
 
-        panel_color = self.theme_ui
-        border_color = _mul_color(self.theme_ui, 0.85)
-
-        pygame.draw.rect(screen, panel_color, rect, border_radius=10)
-        pygame.draw.rect(screen, border_color, rect, 3, border_radius=10)
-
-        text = self.font.render("PAUSA", True, self.theme_fg)
+        text = self.font.render("PAUSA", True, (0, 0, 0))
         text_rect = text.get_rect(center=rect.center)
         screen.blit(text, text_rect)
+
+    def SetClient(self, client, connected):
+        self.client = client
+        self.connected = connected

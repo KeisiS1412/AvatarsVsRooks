@@ -9,7 +9,7 @@ load_dotenv()
 class publicationManager:
     def __init__(self, scores):
         self.scores = scores
-        self.image_url = "https://imgur.com/a/H5G7L7x"
+        self.image_url = "https://i.imgur.com/BHe8vcJ.png"
 
         self.client = tweepy.Client(
             consumer_key=os.getenv("API_KEY"),
