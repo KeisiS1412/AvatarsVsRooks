@@ -105,6 +105,7 @@ def GetCurrentUser():
     ap1 = perfil.get("apellido1", "")
     ap2 = perfil.get("apellido2", "")
 
+    # dividir 'apellidos'
     if not ap1 and not ap2:
         ap_combo = perfil.get("apellidos")
         if isinstance(ap_combo, str):
@@ -164,6 +165,7 @@ class PersonalizationScene(Scene):
             self.font, (235, 235, 235), (210, 210, 210)
         )
         self.returnBtn.on_click = self.save_preferences
+        
 
         self.themeDrop = Dropdown(
             LEFT_X - 120, LEFT_Y0 + 3*LEFT_YSTEP, THEME_W, THEME_H,
@@ -268,7 +270,301 @@ class PersonalizationScene(Scene):
             # widgets pueden no tener los mismos métodos exactos, ignorar fallos
             pass
 
-        # Botones
+        # Descargar avatar
+        username = self.user.get("usuario") or ""  # nombre de usuario 
+        foto = self.user.get("foto")             
+
+        local_path = None
+
+        # Si ya es una ruta string válida y existe, úsala tal cual
+        if isinstance(foto, str) and os.path.exists(foto):
+            local_path = foto
+        else:
+            # Si viene como dict, ignoramos el path cifrado y pedimos al backend
+            if username:
+                try:
+                    print(f"[Personalization] Descargando avatar para {username}...")
+                    local_path = download_avatar(username)
+                    print(f"[Personalization] Avatar local: {local_path}")
+                except Exception as e:
+                    print(f"[Personalization] Error descargando avatar: {e}")
+
+        # Actualiza lo que usará DrawAvatar
+        if local_path:
+            self.user["foto"] = local_path
+        else:
+            # Si no hay avatar disponible, mejor dejarlo en None para que no intente cargar un dict
+            self.user["foto"] = None
+
+
+    def save_preferences(self):
+        """Guarda las preferencias de color, tema, canción, hobbie y avatar del usuario"""
+        username = self.user.get("usuario", "")
+        if not username:
+            print("No hay usuario en sesión")
+            return
+
+        # Valores actuales
+        color_hex = self.colorWheel.hex()
+        theme_name = THEME_NAMES[self.themeDrop.index]
+        song_query = getattr(self.musicBox, "text", "").strip()
+
+        # Hobby desde el dropdown
+        hobby_value = ""
+        try:
+            if hasattr(self, "hobbyDrop") and self.hobbyDrop is not None:
+                if hasattr(self.hobbyDrop, "value"):
+                    hobby_value = getattr(self.hobbyDrop, "value", "") or ""
+                else:
+                    opts = getattr(self.hobbyDrop, "options", None)
+                    idx = getattr(self.hobbyDrop, "index", 0)
+                    if isinstance(opts, (list, tuple)) and opts:
+                        item = opts[idx if 0 <= idx < len(opts) else 0]
+                        if isinstance(item, (list, tuple)) and len(item) >= 2:
+                            hobby_value = item[1]
+                        else:
+                            hobby_value = item
+            else:
+                hobby_value = self.user.get("hobbie") or ""
+        except Exception as e:
+            print(f"[Personalization] No se pudo leer hobby del dropdown: {e}")
+            hobby_value = self.user.get("hobbie") or ""
+
+        print(f"[Personalization] Guardando preferencias...")
+        print(f"  Usuario: {username}")
+        print(f"  Color: {color_hex}")
+        print(f"  Tema: {theme_name}")
+        print(f"  Canción: {song_query}")
+        print(f"  Hobbie: {hobby_value}")
+
+        try:
+            # Preferencias básicas
+            result = update_user_preferences(
+                username=username,
+                color=color_hex,
+                theme=theme_name,
+                song=song_query,
+                hobbie=hobby_value,
+            )
+
+            if not isinstance(result, dict) or not result.get("ok"):
+                print(f"Error del servidor al guardar preferencias: {result}")
+                return
+
+            print("[Personalization] Preferencias básicas guardadas en backend")
+
+            # Avatar nuevo 
+            if getattr(self, "avatar_dirty", False):
+                avatar_path = self.user.get("foto") or getattr(self, "avatar_path", None)
+                if avatar_path and os.path.exists(avatar_path):
+                    print(f"[Personalization] Subiendo nuevo avatar {avatar_path}...")
+                    avatar_result = upload_avatar(username, avatar_path)
+                    print(f"[Personalization] Respuesta avatar: {avatar_result}")
+                    if not avatar_result.get("ok"):
+                        print(f"[Personalization] No se pudo actualizar el avatar: {avatar_result}")
+                    else:
+                        self.avatar_dirty = False
+
+            # Actualizar la sesión 
+            try:
+                from session import get_current_user, set_current_user
+
+                current = get_current_user()
+                if isinstance(current, dict):
+                    perfil = current.get("perfil")
+                    if not isinstance(perfil, dict):
+                        perfil = {}
+
+                    perfil["hobbie"] = hobby_value
+                    perfil["color_preferido"] = color_hex
+                    perfil["tema_preferido"] = theme_name
+                    if song_query:
+                        perfil["cancion_preferida"] = song_query
+
+                    current["perfil"] = perfil
+                    current["primera_vez"] = False
+                    set_current_user(current)
+                    print("[Personalization] Sesión local actualizada")
+            except Exception as e:
+                print(f"[Personalization] No se pudo actualizar la sesión local: {e}")
+
+            print("[Personalization] Cambiando a GameMode...")
+            self.switchScene("game_mode")
+
+        except Exception as e:
+            print(f"Error al guardar preferencias: {e}")
+            import traceback
+            traceback.print_exc()
+
+
+
+
+
+    def load_saved_preferences(self):
+        """Carga y aplica las preferencias de color, tema y canción guardadas del usuario"""
+        perfil = self.user.get("perfil", {})
+
+        # Restaurar color guardado
+        saved_color = perfil.get("color_preferido")
+
+        if saved_color and isinstance(saved_color, str) and saved_color.startswith("#"):
+            try:
+                print(f"[Personalization] Cargando color guardado: {saved_color}")
+                hex_color = saved_color.lstrip("#")
+                if len(hex_color) == 6:
+                    r = int(hex_color[0:2], 16)
+                    g = int(hex_color[2:4], 16)
+                    b = int(hex_color[4:6], 16)
+                    self.colorWheel.selected = (r, g, b)
+                    self.colorHexField.set_content(saved_color)
+            except Exception as e:
+                print(f"Error cargando color: {e}")
+        else:
+            print("No hay color guardado válido")
+
+        # Restaurar tema guardado
+        saved_theme = perfil.get("tema_preferido")
+
+        if saved_theme and saved_theme in THEME_NAMES:
+            try:
+                theme_idx = THEME_NAMES.index(saved_theme)
+                self.themeDrop.index = theme_idx
+                print("Tema aplicado")
+            except Exception as e:
+                print(f"Error cargando tema: {e}")
+        else:
+            print("No hay tema guardado válido")
+
+        # Restaurar canción guardada (solo texto, SIN auto-reproducir)
+        saved_song = perfil.get("cancion_preferida")
+
+        if saved_song and isinstance(saved_song, str) and saved_song.strip():
+            try:
+                print(f"[Personalization] Cargando canción guardada: {saved_song}")
+                self.musicBox.text = saved_song
+            except Exception as e:
+                print(f"Error cargando canción en textbox: {e}")
+
+
+    def EnsureSpotify(self):
+        """Inicializa el cliente de Spotify si hace falta."""
+        if not self._spotify_available:
+            print("[Spotify] Spotipy no disponible. Instala 'spotipy' y 'python-dotenv'.")
+            return False
+        
+        if self._sp is None:
+            
+            cid = os.getenv("SPOTIPY_CLIENT_ID")
+            csc = os.getenv("SPOTIPY_CLIENT_SECRET")
+            red = os.getenv("SPOTIPY_REDIRECT_URI", "http://127.0.0.1:8888/callback")
+            scope = os.getenv("SPOTIPY_SCOPE", "user-read-playback-state,user-modify-playback-state")
+
+            print(f"[Spotify] Client ID: {cid[:10]}..." if cid else "[Spotify] Client ID no encontrado")
+            print(f"[Spotify] Redirect URI: {red}")
+
+            if not cid or not csc:
+                print("[Spotify] Falta SPOTIPY_CLIENT_ID/SECRET en .env")
+                return False
+
+            try:
+                self._sp = spotipy.Spotify(
+                    auth_manager=SpotifyOAuth(
+                        client_id=cid,
+                        client_secret=csc,
+                        redirect_uri=red,
+                        scope=scope,
+                        open_browser=True  # Abrirá el navegador para autorizar
+                    )
+                )
+                print("[Spotify] ✓ Cliente inicializado correctamente")
+            except Exception as e:
+                print(f"[Spotify] Error al inicializar: {e}")
+                return False
+        
+        return True
+
+    # Obtener el ID del dispositivo activo en Spotify
+    def GetActiveDeviceID(self):
+        try:
+            devices = self._sp.devices()
+            devs = devices.get("devices", [])
+            if not devs:
+                print("[Spotify] No hay dispositivo activo. Abre Spotify en tu PC o celular.")
+                return None
+            return devs[0].get("id")
+        except Exception as e:
+            print(f"[Spotify] Error al obtener dispositivos: {e}")
+            return None
+
+    # Analiza texto de la caja de música
+    def ParseSongArtist(self, text):
+        """Acepta: 'Canción - Artista', 'Canción / Artista', 'Canción, Artista' o solo 'Canción'."""
+        if not text:
+            return ("", "")
+        seps = [" - ", " / ", ", "]
+        for sep in seps:
+            if sep in text:
+                name, artist = text.split(sep, 1)
+                return (name.strip(), artist.strip())
+        return (text.strip(), "")
+
+    # Reproduce canción desde la caja de texto
+    def PlayMusicFromTextbox(self):
+        if not self.EnsureSpotify():
+            return
+        query = getattr(self.musicBox, "text", "").strip()
+        if not query:
+            print("[Spotify] Escribe una canción (y opcionalmente el artista).")
+            return
+
+        name, artist = self.ParseSongArtist(query)
+        try:
+            q = f"track:{name}" + (f" artist:{artist}" if artist else "")
+            results = self._sp.search(q=q, type="track", limit=1)
+            items = results.get("tracks", {}).get("items", [])
+            if not items:
+                print("[Spotify] No se encontró la canción con esos datos.")
+                return
+            track = items[0]
+            uri = track["uri"]
+            device_id = self.GetActiveDeviceID()
+            if not device_id:
+                return
+            self._sp.start_playback(device_id=device_id, uris=[uri])
+            self._last_play_query = query
+            self.music_muted = False
+            print(f"[Spotify] Reproduciendo '{track['name']}' - {', '.join(a['name'] for a in track['artists'])}")
+        except Exception as e:
+            print(f"[Spotify] Error al reproducir: {e}")
+
+    # Pausar música
+    def SpotifyPause(self):
+        if not self.EnsureSpotify():
+            return
+        try:
+            self._sp.pause_playback()
+            print("[Spotify] Pausado.")
+        except Exception as e:
+            print(f"[Spotify] Error al pausar: {e}")
+
+    # Reanudar música
+    def SpotifyResume(self):
+        if not self.EnsureSpotify():
+            return
+        try:
+            self._sp.start_playback()
+            print("[Spotify] Reproducción reanudada.")
+        except Exception as e:
+            print(f"[Spotify] Error al reanudar: {e}")
+
+    # Manejar eventos de entrada
+    def handleEvent(self, event):
+        self.musicBox.handleEvent(event)
+        self.themeDrop.handleEvent(event)
+        self.hobbyDrop.handleEvent(event)
+        self.colorWheel.handleEvent(event)
+        self.colorHexField.set_content(self.colorWheel.hex())
+
         if self.searchBtn.wasClicked(event):
             self.PlayMusicFromTextbox()
 
@@ -306,8 +602,7 @@ class PersonalizationScene(Scene):
             print(f"[PersonalizationScene] Usuario cambió de '{current_username}' a '{session_username}', recargando...")
             self.user = GetCurrentUser()
             self.load_saved_preferences()
-
-        # Actualizar tema adaptativo
+        
         base = self.colorWheel.selected  
         t_index = self.themeDrop.index
         k = THEME_MULTS[t_index]

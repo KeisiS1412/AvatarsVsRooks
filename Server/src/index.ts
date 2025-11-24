@@ -5,9 +5,6 @@ import argon2 from 'argon2';
 import fs from 'fs';
 import path from 'path';
 import { encryptBytes } from './crypto';
-import fs from 'fs';
-import path from 'path';
-import { encryptBytes } from './crypto';
 import crypto from 'crypto';
 import { loadOrCreateKey, encryptJson, decryptJson, decryptBytes} from './crypto';
 import { readEncryptedFile, writeEncryptedFile } from './storage';
@@ -18,13 +15,8 @@ import { DBShape, RegisterReq, UserRecord } from './types';
 import { getPublicUserByUsername } from './storage'; // para el endpoint de perfil público
 // === FIN NUEVO ===
 
-// === NUEVO ===
-import { getPublicUserByUsername } from './storage'; // para el endpoint de perfil público
-// === FIN NUEVO ===
-
 async function main() {
   const app = express();
-  app.use(express.json({ limit: '20mb' }));
   app.use(express.json({ limit: '20mb' }));
 
   const key = await loadOrCreateKey();
@@ -124,7 +116,6 @@ async function main() {
       const valid = await argon2.verify(user.password_hash, password);
       if (!valid) return res.status(401).json({ ok: false, error: 'invalid_credentials' });
 
-      // Se mantiene la respuesta mínima; el cliente podrá ampliar con /users/:username
       // Se mantiene la respuesta mínima; el cliente podrá ampliar con /users/:username
       return res.status(200).json({ ok: true, user: { id: user.id, username: user.username } });
     } catch (err) {
