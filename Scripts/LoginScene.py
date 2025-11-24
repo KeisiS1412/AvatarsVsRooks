@@ -6,7 +6,46 @@ from ImageButtons import ImageButton
 import threading
 from api_client import login_user, get_user  
 from session import set_current_user 
+from api_client import login_user, get_user  
+from session import set_current_user 
 LOGIN_SUCCESS = pygame.USEREVENT + 2
+
+# ARRIBA, con el resto de imports
+from api_client import login_user, get_user
+from session import set_current_user
+
+# Helpers (si aún no los tienes en este archivo):
+def _merge_dicts(base: dict, extra: dict) -> dict:
+    if not isinstance(base, dict): base = {}
+    if not isinstance(extra, dict): return base
+    out = dict(base)
+    for k, v in extra.items():
+        if isinstance(v, dict) and isinstance(out.get(k), dict):
+            tmp = dict(out[k]); tmp.update(v); out[k] = tmp
+        else:
+            out[k] = v
+    return out
+
+def _try_fetch_profile(username: str) -> dict:
+    if not username:
+        return {}
+    
+    print(f"[DEBUG LoginScene] Obteniendo perfil completo para: {username}")
+    prof = get_user(username, timeout=3.0)
+    
+    print(f"[DEBUG LoginScene] Respuesta de get_user: {prof}")
+    
+    if isinstance(prof, dict) and prof.get("ok") and isinstance(prof.get("user"), dict):
+        user_data = prof["user"]
+        print(f"[DEBUG LoginScene] Datos del usuario extraídos: {user_data}")
+        return user_data
+    
+    if isinstance(prof, dict) and ("username" in prof or "perfil" in prof):
+        print(f"[DEBUG LoginScene] Usuario directo: {prof}")
+        return prof
+    
+    print(f"[DEBUG LoginScene] No se pudo obtener perfil válido")
+    return {}
 
 # ARRIBA, con el resto de imports
 from api_client import login_user, get_user
@@ -56,6 +95,8 @@ class LoginScene(Scene):
         self.buttonLength = 450
         self._login_ok = False
         self._merged_user = None
+        self._login_ok = False
+        self._merged_user = None
         center = res[0] // 2
         yStart = 400
         ySpacing = 90
@@ -71,7 +112,12 @@ class LoginScene(Scene):
             # ← tu TextBox ya soporta estos kwargs (los usamos en Register)
             is_password=True,
             right_padding=40
+            (255, 255, 255), (255, 255, 255), "Contraseña", (180, 180, 180),
+            # ← tu TextBox ya soporta estos kwargs (los usamos en Register)
+            is_password=True,
+            right_padding=40
         )
+        
         
 
         # === Botones ===
@@ -104,6 +150,15 @@ class LoginScene(Scene):
             self.aboutButton,
             self.registerButton
         ]
+
+        self.eyePwd = ImageButton(
+            self.passwordBox.rect.right - 36,   # ajusta horizontal
+            self.passwordBox.rect.centery + 1, # ajusta vertical
+            "Assets/eye-closed.png",
+            0.08,
+            "Assets/eye-open.png"
+        )
+        self.buttonsList.append(self.eyePwd)
 
         self.eyePwd = ImageButton(
             self.passwordBox.rect.right - 36,   # ajusta horizontal
@@ -210,7 +265,104 @@ class LoginScene(Scene):
         threading.Thread(target=self._do_login_thread, args=(user, pwd), daemon=True).start()
 
 
+        # --- Anti brute-force: 3 intentos -> bloqueo 15 s ---
+        self.fail_count = 0
+        self.lock_until_ms = 0  # timestamp (pygame.time.get_ticks()) hasta cuando está bloqueado
+
+
+    # === Helpers anti-brute-force ===
+    def _is_locked(self) -> bool:
+        return pygame.time.get_ticks() < self.lock_until_ms
+
+    def _lock_for(self, ms: int):
+        self.lock_until_ms = pygame.time.get_ticks() + max(0, ms)
+
+    def _remaining_lock_seconds(self) -> int:
+        rem = self.lock_until_ms - pygame.time.get_ticks()
+        return max(0, (rem + 999) // 1000)  # redondeo hacia arriba
+
+    def _register_failed_attempt(self):
+        self.fail_count += 1
+        if self.fail_count >= 3:
+            self.fail_count = 0
+            self._lock_for(15_000)  # 15 s
+            self.login_message = "Demasiados intentos. Bloqueado 15 s."
+        else:
+            self.login_message = f"Usuario o contraseña incorrectos."
+
+    def _reset_attempts(self):
+        self.fail_count = 0
+        self.lock_until_ms = 0
+
+
+    def _do_login_thread(self, user: str, pwd: str):
+        """Corre en un hilo: hace login, mergea perfil y notifica al hilo principal."""
+        try:
+            resp = login_user(user, pwd, timeout=5.0)
+            
+            if resp.get("ok"):
+                u = resp.get("user") or {}
+                
+                username = (u.get("username") or u.get("usuario") or "").strip()
+
+                # Merge best-effort con perfil completo
+                merged = u
+                try:
+                    prof_user = _try_fetch_profile(username)
+                    
+                    if prof_user:
+                        merged = _merge_dicts(u, prof_user)
+                except Exception as e:
+                    print(f"[LoginScene] Error en merge: {e}")
+
+                # Guarda en sesión
+                try:
+                    set_current_user(merged)
+                except Exception as e:
+                    print(f"LoginScene] Error guardando en sesión: {e}")
+
+                # Señales...
+                try:
+                    pygame.event.post(pygame.event.Event(LOGIN_SUCCESS, user=merged))
+                except Exception:
+                    pass
+
+                self._merged_user = merged
+                self._login_ok = True
+
+                self.login_message = f"Bienvenido {merged.get('username') or merged.get('usuario', '')}"
+            else:
+                self.login_message = "Usuario o contraseña incorrectos."
+        except Exception as e:
+            print(f"[LoginScene] Error general: {e}")
+            import traceback
+            traceback.print_exc()
+            self.login_message = "Error de red"
+            
+    def intentar_login(self, user: str, pwd: str):
+        """Llama esto desde tu handler del botón/enter."""
+        self.login_message = "Iniciando sesión..."
+        threading.Thread(target=self._do_login_thread, args=(user, pwd), daemon=True).start()
+
+
     def handleEvent(self, event):
+        # 0) Si está bloqueado, impedir escribir en username/password y bloquear el botón "Continuar"
+        if self._is_locked():
+            # Bloquea el click del botón de login
+            if self.loginButton.wasClicked(event):
+                self.login_message = f"Bloqueado {self._remaining_lock_seconds()} s…"
+                return
+            # Evita pasar eventos de teclado a las cajas si están intentando escribir
+            if event.type in (pygame.KEYDOWN, pygame.TEXTINPUT):
+                return
+            # Evita que puedan enfocar/editar durante el lock
+            if event.type in (pygame.MOUSEBUTTONDOWN, pygame.MOUSEBUTTONUP):
+                if self.usernameBox.rect.collidepoint(getattr(event, "pos", (-1, -1))) or \
+                   self.passwordBox.rect.collidepoint(getattr(event, "pos", (-1, -1))):
+                    return
+            # Permitimos otros botones/escenas (help, about, register, etc.) a continuación
+
+        # 1) Cambio de escena al recibir el evento de éxito de login
         # 0) Si está bloqueado, impedir escribir en username/password y bloquear el botón "Continuar"
         if self._is_locked():
             # Bloquea el click del botón de login
@@ -246,9 +398,11 @@ class LoginScene(Scene):
                 pass
 
         # 2) Forward de eventos a los inputs
+        # 2) Forward de eventos a los inputs
         self.usernameBox.handleEvent(event)
         self.passwordBox.handleEvent(event)
 
+        # 3) Click en botón de login: dispara el hilo y señales de notificación
         # 3) Click en botón de login: dispara el hilo y señales de notificación
         if self.loginButton.wasClicked(event):
             # No inicies login si está bloqueado
@@ -256,8 +410,16 @@ class LoginScene(Scene):
                 self.login_message = f"Bloqueado {self._remaining_lock_seconds()} s…"
                 return
 
+            # No inicies login si está bloqueado
+            if self._is_locked():
+                self.login_message = f"Bloqueado {self._remaining_lock_seconds()} s…"
+                return
+
             user = self.usernameBox.getText()
             pwd = self.passwordBox.getText()
+            self.login_message = "Iniciando sesión..."
+            self._login_ok = False
+            self._merged_user = None
             self.login_message = "Iniciando sesión..."
             self._login_ok = False
             self._merged_user = None
@@ -312,9 +474,23 @@ class LoginScene(Scene):
                 except Exception:
                     # Error de red no cuenta como intento
                     self.login_message = "Error de red"
+                        # Credenciales malas → cuenta intento
+                        self._register_failed_attempt()
+                except Exception:
+                    # Error de red no cuenta como intento
+                    self.login_message = "Error de red"
 
             threading.Thread(target=_do_login, daemon=True).start()
 
+        if self.eyePwd.wasClicked(event):
+            if hasattr(self.passwordBox, "set_show_password"):
+                self.passwordBox.set_show_password(self.eyePwd.clicked)
+            else:
+                # fallback si no añadiste el método helper:
+                self.passwordBox.showPassword = self.eyePwd.clicked
+            # Flags de respaldo (Plan B) para cambiar de escena desde update()
+
+        # 4) Otros botones
         if self.eyePwd.wasClicked(event):
             if hasattr(self.passwordBox, "set_show_password"):
                 self.passwordBox.set_show_password(self.eyePwd.clicked)
@@ -328,6 +504,54 @@ class LoginScene(Scene):
             pass
 
         if self.faceRecognitionButton.wasClicked(event):
+            from Reconocimientofacial import ReconocimientoFacialLBPH
+
+            def _face_login():
+                recog = ReconocimientoFacialLBPH()
+                recog.running = True
+                recog.login_con_rostro()
+
+                nombre = None
+                try:
+                    with open("last_face_login.txt", "r") as f:
+                        nombre = f.read().strip()
+                except Exception:
+                    pass
+
+                if not nombre:
+                    self.login_message = "Rostro no reconocido."
+                    return
+                try:
+                    # 1. obtener datos básicos
+                    user_basic = get_user(nombre, timeout=3.0)
+
+                    if isinstance(user_basic, dict) and user_basic.get("ok"):
+                        user_basic = user_basic.get("user", {})
+
+                    # 2. cargar perfil completo (si existe)
+                    prof_user = _try_fetch_profile(nombre)
+
+                    # 3. Mezclarlos en un solo objeto
+                    merged = _merge_dicts(user_basic, prof_user)
+
+                    # 4. Guardar en sesión
+                    try:
+                        set_current_user(merged)
+                    except Exception:
+                        pass
+
+                    # 5. Enviar el evento completo
+                    pygame.event.post(
+                        pygame.event.Event(LOGIN_SUCCESS, user=merged)
+                    )
+
+                except Exception:
+                    # Si algo falla, al menos loguea con username
+                    pygame.event.post(
+                        pygame.event.Event(LOGIN_SUCCESS, user={"username": nombre})
+                    )
+
+            threading.Thread(target=_face_login, daemon=True).start()
             from Reconocimientofacial import ReconocimientoFacialLBPH
 
             def _face_login():
@@ -419,6 +643,7 @@ class LoginScene(Scene):
         for button in self.buttonsList:
             button.update(mousePos)
 
+        # 2) Hover para el link (cambio de cursor)
         # 2) Hover para el link (cambio de cursor)
         if self.forgot_rect and self.forgot_rect.collidepoint(mousePos):
             if not self.forgot_hover:

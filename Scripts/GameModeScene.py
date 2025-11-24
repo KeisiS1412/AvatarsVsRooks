@@ -1,6 +1,8 @@
 import pygame
 from Scene import Scene
 from Buttons import Button
+from control.Cliente import Client
+
 
 class GameModeScene(Scene):
     def __init__(self, font, res, switchSceneCallback, mananger):
@@ -33,18 +35,21 @@ class GameModeScene(Scene):
         self.settings_rect = self.settings_img.get_rect(topright=(screenW - 20, 20))
         # ================================
 
-        # Botones
+        # Botones de dificultad
         button_w, button_h = 300, 60
-        spacing = 100  # espacio entre botones
+        spacing = 100
         y_center = screenH // 2
 
         labels = ["easy", "medium", "hard"]
+        labels = ["easy", "medium", "hard"]
         self.buttons = []
+        self.conected = False
 
-        # Ancho total ocupado por todos los botones + espacios
+        # Calcular el ancho total de todos los botones más los espacios
         total_width = len(labels) * button_w + (len(labels) - 1) * spacing
-        start_x = (screenW - total_width) // 1.4
+        start_x = (screenW - total_width) // 2  # Centrado en la pantalla
 
+        # Crear los botones centrados horizontalmente
         for i, label in enumerate(labels):
             x = start_x + i * (button_w + spacing)
 
@@ -60,6 +65,24 @@ class GameModeScene(Scene):
                 (255, 255, 255)    # borde blanco
             )
             self.buttons.append(btn)
+
+        # Botón de conectar centrado con el del medio
+        medium_btn = self.buttons[1]
+        connect_y = y_center + 200
+        self.connectButton = Button(
+            medium_btn.rect.centerx, connect_y,
+            button_w, button_h,
+            "Conectar control", font,
+            (37, 32, 28),
+            (255, 255, 255),
+            (255, 255, 255)
+        )
+
+        # Cliente
+        self.client = Client()
+
+        # Fuente para el texto de estado
+        self.status_font = pygame.font.Font(None, 36)
 
     def handleEvent(self, event):
         for button in self.buttons:
