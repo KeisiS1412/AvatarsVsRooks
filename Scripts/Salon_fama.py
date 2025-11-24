@@ -13,11 +13,11 @@ ANCHO, ALTO = info.current_w, info.current_h
 VENTANA = pygame.display.set_mode((ANCHO, ALTO), pygame.FULLSCREEN)
 BLANCO = (255, 255, 255)
 NEGRO = (0, 0, 0)
-COLOR_FONDO = (20, 20, 60)
+COLOR_FONDO = (218, 41, 28)
 
-FUENTE_TEXTO = pygame.font.SysFont("Arial", 60)
-FUENTE_BOTON = pygame.font.SysFont("Arial", 35)
-FUENTE_LISTA = pygame.font.SysFont("Arial", 28)
+FUENTE_TEXTO = pygame.font.SysFont("Avenir", 85)
+FUENTE_BOTON = pygame.font.SysFont("Avenir", 45)
+FUENTE_LISTA = pygame.font.SysFont("Avenir", 36)
 
 # ==============================
 # ARCHIVO LOCAL (ABSOLUTO)
@@ -44,36 +44,26 @@ def guardar_en_fama(username, puntaje):
     except:
         datos_antes = []
 
-    # Ordenarlos antes por puntaje
     datos_antes = sorted(datos_antes, key=lambda x: x["puntaje"], reverse=True)[:5]
 
-    # Agregar nuevo puntaje
     nuevos_datos = datos_antes.copy()
     nuevos_datos.append({"username": username, "puntaje": puntaje})
 
-    # Ordenar y mantener solo top 5
     nuevos_datos = sorted(nuevos_datos, key=lambda x: x["puntaje"], reverse=True)[:5]
 
-    # === Detectar si el nuevo puntaje ALTERA el top 5 ===
     top_cambio = False
 
-    # Caso 1: el top 5 tenía menos de 5 elementos, siempre cambia
     if len(datos_antes) < 5:
         top_cambio = True
     else:
-        # Caso 2: comparar listas — si son diferentes, hubo cambio
         if nuevos_datos != datos_antes:
-            # Confirmar que el nuevo puntaje es el responsable del cambio
-            # Es decir: que realmente entró al top 5 o movió posiciones
             menor_antes = datos_antes[-1]["puntaje"]
             if puntaje > menor_antes:
                 top_cambio = True
 
-    # Guardar archivo final
     with open(ARCHIVO_FAMA, "w", encoding="utf-8") as f:
         json.dump(nuevos_datos, f, indent=4)
 
-    # === Solo publicar si hubo cambio REAL del top 5 ===
     if top_cambio:
         scores = {item["username"]: item["puntaje"] for item in nuevos_datos}
         manager = publicationManager(scores)
@@ -82,6 +72,7 @@ def guardar_en_fama(username, puntaje):
     else:
         print("ℹ️ No se publica porque el top 5 no cambió.")
 
+
 # ==============================
 # LEER PUNTAJES (YA TOP 5)
 # ==============================
@@ -89,7 +80,6 @@ def obtener_puntajes_locales():
     try:
         with open(ARCHIVO_FAMA, "r", encoding="utf-8") as f:
             datos = json.load(f)
-            # Aseguramos que si alguien editó el archivo, igual lo recortamos
             datos = sorted(datos, key=lambda x: x["puntaje"], reverse=True)[:5]
             return datos
     except:
@@ -105,6 +95,10 @@ def mostrar_lista_puntajes(datos, titulo_texto="SALÓN DE LA FAMA"):
 
     medallas = ["🥇", "🥈", "🥉"]
 
+    # <<< NUEVO: INTERLINEADO DE PANTALLA >>>
+    line_spacing = 85   # AUMENTA O DISMINUYE EL ESPACIO ENTRE LOS 5 JUGADORES
+    # <<< ---------------------------------- >>>
+
     ejecutando = True
     while ejecutando:
 
@@ -119,11 +113,9 @@ def mostrar_lista_puntajes(datos, titulo_texto="SALÓN DE LA FAMA"):
 
         VENTANA.fill(COLOR_FONDO)
 
-        # Título
         titulo = FUENTE_TEXTO.render(titulo_texto, True, BLANCO)
         VENTANA.blit(titulo, titulo.get_rect(center=(ANCHO // 2, 80)))
 
-        # Lista centrada
         y_start = 170
 
         if datos:
@@ -137,13 +129,12 @@ def mostrar_lista_puntajes(datos, titulo_texto="SALÓN DE LA FAMA"):
                     linea = f"{i+1}. {username} — {puntaje} pts"
 
                 texto = FUENTE_LISTA.render(linea, True, BLANCO)
-                rect = texto.get_rect(center=(ANCHO // 2, y_start + i * 40))
+                rect = texto.get_rect(center=(ANCHO // 2, y_start + i * line_spacing))
                 VENTANA.blit(texto, rect)
         else:
             msg = FUENTE_LISTA.render("No hay puntajes registrados.", True, (255, 80, 80))
             VENTANA.blit(msg, msg.get_rect(center=(ANCHO // 2, ALTO // 2)))
 
-        # Botón Volver
         pygame.draw.rect(VENTANA, NEGRO, boton_volver, border_radius=10)
         txt_volver = FUENTE_BOTON.render("Volver", True, BLANCO)
         VENTANA.blit(txt_volver, txt_volver.get_rect(center=boton_volver.center))
@@ -158,7 +149,6 @@ def mostrar_lista_puntajes(datos, titulo_texto="SALÓN DE LA FAMA"):
 def salon_de_la_fama():
     datos = obtener_puntajes_locales()
 
-    # IMPORTANTE → Limpiar el archivo a ONLY top 5
     with open(ARCHIVO_FAMA, "w", encoding="utf-8") as f:
         json.dump(datos, f, indent=4)
 
