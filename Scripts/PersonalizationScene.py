@@ -148,20 +148,6 @@ def GetCurrentUser():
     }
 
 
-        "usuario":   raw.get("username") or raw.get("usuario") or "",
-        "nombre":    perfil.get("nombre", "Nombre"),
-        "apellido1": ap1,
-        "apellido2": ap2,
-        "email":     raw.get("email") or perfil.get("email", ""),
-        "telefono":  perfil.get("telefono", ""),
-        "hobbie":    perfil.get("hobbie", ""),
-        "cumple":    perfil.get("cumple") or perfil.get("fecha_nacimiento") or perfil.get("birthday") or "",
-        "foto":      perfil.get("foto") or raw.get("avatar"),
-        "perfil":    perfil,  # ← AGREGAR ESTA LÍNEA para tener acceso directo al perfil
-        "_raw":      raw      # ← Mantener esto por compatibilidad
-    }
-
-
 
 """Escena de personalización del usuario, incluyendo música y tema visual"""
 class PersonalizationScene(Scene):
@@ -197,12 +183,10 @@ class PersonalizationScene(Scene):
 
         self.returnBtn = Button(
             120, 70, 150, 60, "Save",
-            120, 70, 150, 60, "Save",
             self.font, (235, 235, 235), (210, 210, 210)
         )
         self.returnBtn.on_click = self.save_preferences
-        
-        self.returnBtn.on_click = self.save_preferences
+
         
 
         self.themeDrop = Dropdown(
@@ -648,13 +632,11 @@ class PersonalizationScene(Scene):
         self.colorHexField.set_content(self.colorWheel.hex())
 
         if self.searchBtn.wasClicked(event):
-        if self.searchBtn.wasClicked(event):
             self.PlayMusicFromTextbox()
 
         if self.changePhotoBtn.wasClicked(event):
             self._select_new_avatar() 
 
-        if self.muteBtn.wasClicked(event):
         if self.muteBtn.wasClicked(event):
             if not self.music_muted:
                 self.SpotifyPause()

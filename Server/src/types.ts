@@ -7,10 +7,7 @@ export type RegisterPerfil = {
   hobbie: string;
   color_preferido?: string;  
   tema_preferido?: string;   
-  cancion_preferida?: string; 
-  color_preferido?: string;  
-  tema_preferido?: string;   
-  cancion_preferida?: string; 
+  cancion_preferida?: string;  
 };
 
 export type RegisterCuenta = {
@@ -31,8 +28,6 @@ export type RegisterReq = {
   cuenta: RegisterCuenta;
   pago: RegisterPago;
   acepto_tyc: boolean;
-  avatar_b64?: string; // imagen en base64 desde el cliente
-  avatar_mime?: string; // ej. "image/png"
   avatar_b64?: string; // imagen en base64 desde el cliente
   avatar_mime?: string; // ej. "image/png"
 };

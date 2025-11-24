@@ -112,10 +112,6 @@ class LoginScene(Scene):
             # ← tu TextBox ya soporta estos kwargs (los usamos en Register)
             is_password=True,
             right_padding=40
-            (255, 255, 255), (255, 255, 255), "Contraseña", (180, 180, 180),
-            # ← tu TextBox ya soporta estos kwargs (los usamos en Register)
-            is_password=True,
-            right_padding=40
         )
         
         
@@ -474,8 +470,7 @@ class LoginScene(Scene):
                 except Exception:
                     # Error de red no cuenta como intento
                     self.login_message = "Error de red"
-                        # Credenciales malas → cuenta intento
-                        self._register_failed_attempt()
+                    self._register_failed_attempt()
                 except Exception:
                     # Error de red no cuenta como intento
                     self.login_message = "Error de red"
