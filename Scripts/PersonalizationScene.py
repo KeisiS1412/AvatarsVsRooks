@@ -110,29 +110,6 @@ def GetCurrentUser():
             ap1 = parts[0] if parts else ""
             ap2 = " ".join(parts[1:]) if len(parts) > 1 else ""
 
-    try:
-        from session import get_current_user
-        raw = get_current_user()
-    except Exception:
-        raw = None
-
-    if not isinstance(raw, dict):
-        raw = {}
-
-    perfil = raw.get("perfil") if isinstance(raw.get("perfil"), dict) else {}
-
-    # Tomar apellido1/2 si ya vienen separados
-    ap1 = perfil.get("apellido1", "")
-    ap2 = perfil.get("apellido2", "")
-
-    # dividir 'apellidos'
-    if not ap1 and not ap2:
-        ap_combo = perfil.get("apellidos")
-        if isinstance(ap_combo, str):
-            parts = ap_combo.strip().split()
-            ap1 = parts[0] if parts else ""
-            ap2 = " ".join(parts[1:]) if len(parts) > 1 else ""
-
     return {
         "usuario":   raw.get("username") or raw.get("usuario") or "",
         "nombre":    perfil.get("nombre", "Nombre"),
@@ -186,7 +163,6 @@ class PersonalizationScene(Scene):
             self.font, (235, 235, 235), (210, 210, 210)
         )
         self.returnBtn.on_click = self.save_preferences
-
         
 
         self.themeDrop = Dropdown(
@@ -525,7 +501,7 @@ class PersonalizationScene(Scene):
             print(f"[Spotify] Redirect URI: {red}")
 
             if not cid or not csc:
-                print("[Spotify] ❌ Falta SPOTIPY_CLIENT_ID/SECRET en .env")
+                print("[Spotify] Falta SPOTIPY_CLIENT_ID/SECRET en .env")
                 return False
 
             try:
@@ -625,10 +601,6 @@ class PersonalizationScene(Scene):
         self.themeDrop.handleEvent(event)
         self.hobbyDrop.handleEvent(event)
         self.colorWheel.handleEvent(event)
-        self.musicBox.handleEvent(event)
-        self.themeDrop.handleEvent(event)
-        self.hobbyDrop.handleEvent(event)
-        self.colorWheel.handleEvent(event)
         self.colorHexField.set_content(self.colorWheel.hex())
 
         if self.searchBtn.wasClicked(event):
@@ -670,24 +642,6 @@ class PersonalizationScene(Scene):
             self.refresh_user()
             self.load_saved_preferences()
         
-        # Detectar si el usuario cambió (por ejemplo, después de login)
-        current_username = self.user.get("usuario", "")
-        
-        try:
-            from session import get_current_user
-            session_user = get_current_user()
-            session_username = ""
-            if isinstance(session_user, dict):
-                session_username = session_user.get("username") or session_user.get("usuario") or ""
-        except Exception:
-            session_username = ""
-        
-        # Si el usuario en sesión cambió, recargar
-        if session_username and session_username != current_username:
-            print(f"[PersonalizationScene] Usuario cambió de '{current_username}' a '{session_username}', recargando...")
-            self.refresh_user()
-            self.load_saved_preferences()
-        
         base = self.colorWheel.selected  
         t_index = self.themeDrop.index
         k = THEME_MULTS[t_index]
@@ -701,7 +655,6 @@ class PersonalizationScene(Scene):
 
     # Dibujar la escena
     def draw(self, s):
-        s.fill(self.theme_bg)
         s.fill(self.theme_bg)
 
         # Títulos
@@ -893,7 +846,6 @@ class PersonalizationScene(Scene):
 
         PaintDropdowns(self.hobbyDrop)
         PaintDropdowns(self.themeDrop)
-        self.refresh_user()
 
         # TextBox de Música: colores adaptativos, texto con theme_fg
         self.musicBox.inactiveColor = self.theme_ui
