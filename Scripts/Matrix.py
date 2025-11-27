@@ -80,6 +80,7 @@ class Matrix:
         self.levelIndex = 0                 # índice actual (0 = primer nivel)
         self.levelTimeAccumulator = 0       # ms transcurridos en el nivel actual
         self.sceneChanged = False
+        self.finalScoreProcessed = False
 
         self.totalTime = 0  # (si lo usas en otra parte)
         self.difficulty = difficulty.lower()
@@ -323,6 +324,11 @@ class Matrix:
                     self.sceneChanged = True
                     print("[Matrix] Todos los niveles completados -> cambiando escena")
                     self.clear_units()
+
+                # evitar que esto se ejecute dos veces
+                if self.finalScoreProcessed:
+                    return
+                self.finalScoreProcessed = True
 
                 try:
                     from MusicSpotify import obtener_datos_cancion_actual
