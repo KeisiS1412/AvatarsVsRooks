@@ -80,6 +80,7 @@ class Matrix:
         self.levelIndex = 0                 # índice actual (0 = primer nivel)
         self.levelTimeAccumulator = 0       # ms transcurridos en el nivel actual
         self.sceneChanged = False
+        self.finalScoreProcessed = False
 
         self.totalTime = 0  # (si lo usas en otra parte)
         self.difficulty = difficulty.lower()
@@ -324,6 +325,11 @@ class Matrix:
                     print("[Matrix] Todos los niveles completados -> cambiando escena")
                     self.clear_units()
 
+                # evitar que esto se ejecute dos veces
+                if self.finalScoreProcessed:
+                    return
+                self.finalScoreProcessed = True
+
                 try:
                     from MusicSpotify import obtener_datos_cancion_actual
                     from Algoritmo import calcular_puntaje_ajustado
@@ -357,10 +363,9 @@ class Matrix:
                     # ============================
                     user = get_current_user()
                     username = user.get("username", "Jugador")
-                    pantalla_victoria(username, puntaje)
-
-                    # guardar en JSON después
                     guardar_en_fama(username, puntaje)
+                    pantalla_victoria(username, puntaje)
+                    
 
                 except Exception as e:
                     print("[Matrix] ERROR en cálculo de puntaje final:", e)
@@ -843,6 +848,21 @@ class Matrix:
                 except Exception:
                     pass
 
+    def shoot_from_selected_tower(self):
+        sel_row, sel_col = self.selector.get_selected_cell(self.cellSize, self.imagePos)
+        tower = self.towers.get((sel_row, sel_col))
+        if not tower or not getattr(tower, "is_alive", True):
+            return
+
+        if isinstance(tower, FireTower):
+            self._spawn_fireball_below(tower)
+        elif isinstance(tower, WaterTower):
+            self._spawn_waterdrop_below(tower)
+        elif isinstance(tower, SandTower):
+            self._spawn_sandshard_below(tower)
+        elif isinstance(tower, RockTower):
+            self._spawn_rock_below(tower)
+
     def get_remaining_time(self):
         """
         Devuelve segundos restantes del nivel actual.
@@ -933,7 +953,7 @@ class Matrix:
                         self.matrix[r][c] = 0
                 except Exception:
                     pass
-        self.avatarsList.clear()
+        self.avatarsList.clear() 
 
         # Proyectiles
         try:
@@ -956,45 +976,3 @@ class Matrix:
             self.enemy_projectiles = []
 
         # Limpia la matriz de referencias no-int (si hay objetos)
-        for r in range(self.ROWS):
-            for c in range(self.COLUMNS):
-                cell = self.matrix[r][c]
-                if cell and not isinstance(cell, int):
-                    self.matrix[r][c] = 0
-
-        # Reset acumuladores y timers de spawn config
-        try:
-            self.enemyAccumulators = {k: 0 for k in self.enemySpawnTimers}
-        except Exception:
-            pass
-        for k, cfg in self.enemyConfigs.items():
-            try:
-                cfg["timer"] = random.uniform(cfg["min"], cfg["max"])
-            except Exception:
-                pass
-        print("[Matrix] clear_units: torres/enemigos/rooks/avatars/proyectiles limpiados")
-
-    def shoot_from_selected_tower(self):
-        """Dispara el proyectil de la torre seleccionada hacia abajo (usa los métodos existentes)."""
-        pos = self.calculateCell(self.selector.position)
-        if not pos:
-            return
-
-        row, col = pos
-        tower = self.towers.get((row, col))
-        if not tower:
-            return
-
-        # Dispara según el tipo de torre
-        if isinstance(tower, FireTower):
-            self._spawn_fireball_below(tower)
-            print("[Matrix] Disparo manual de FireTower")
-        elif isinstance(tower, WaterTower):
-            self._spawn_waterdrop_below(tower)
-            print("[Matrix] Disparo manual de WaterTower")
-        elif isinstance(tower, SandTower):
-            self._spawn_sandshard_below(tower)
-            print("[Matrix] Disparo manual de SandTower")
-        elif isinstance(tower, RockTower):
-            self._spawn_rock_below(tower)
-            print("[Matrix] Disparo manual de RockTower")

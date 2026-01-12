@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { EncBlob, decryptJson } from './crypto'; // === NUEVO: import decryptJson
 import { DBShape } from './types';               // === NUEVO
-import { normalize } from './util';             // === NUEVO
+import { normalize } from './util';             // === NUEVO              // === NUEVO            // === NUEVO
 
 const DATA_FILE = path.resolve(process.env.DATA_FILE || './usuarios.json.enc');
 
@@ -49,6 +49,7 @@ export type PublicUser = {
   username: string;
   email?: string;
   perfil?: PublicPerfil;
+  primera_vez?: boolean; 
 };
 
 function toPublicUser(u: any): PublicUser | null {
@@ -83,6 +84,7 @@ function toPublicUser(u: any): PublicUser | null {
       tema_preferido: p.tema_preferido,
       cancion_preferida: p.cancion_preferida, 
     },
+    primera_vez: u.primera_vez ?? false,
   };
 }
 

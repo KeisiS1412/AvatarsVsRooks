@@ -25,3 +25,14 @@ class Selector:
 
     def draw(self, screen):
         screen.blit(self.image, self.position)
+
+    def get_selected_cell(self, cellSize, matrix_pos):
+        """
+        Devuelve (row, col) de la celda actualmente seleccionada
+        usando la posición en píxeles y la posición de la matriz en pantalla.
+        """
+        x, y = self.position
+        mx, my = matrix_pos
+        col = (x - mx) // cellSize[0]
+        row = (y - my) // cellSize[1]
+        return int(row), int(col)

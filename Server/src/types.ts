@@ -7,7 +7,7 @@ export type RegisterPerfil = {
   hobbie: string;
   color_preferido?: string;  
   tema_preferido?: string;   
-  cancion_preferida?: string; 
+  cancion_preferida?: string;  
 };
 
 export type RegisterCuenta = {
@@ -48,6 +48,7 @@ export type UserRecord = {
     path: string;   // ruta a archivo cifrado (JSON con nonce/ct)
     mime: string;
   };
+  primera_vez?: boolean;
 };
 
 export type DBShape = { usuarios: UserRecord[] };

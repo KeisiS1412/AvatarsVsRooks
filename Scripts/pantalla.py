@@ -130,8 +130,6 @@ def cargar_frames(lista_archivos):
 # ============================================================
 def pantalla_victoria(username, puntaje):
 
-    guardar_en_fama(username, puntaje)
-
     # Música de victoria
     ruta_audio = os.path.join(CARPETA, "victoria.mp3")
     if os.path.exists(ruta_audio):
